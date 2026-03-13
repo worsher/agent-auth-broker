@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+*.tsbuildinfo
+
+# Turbo cache
+.turbo/
+
+# Environment variables (may contain secrets)
+.env
+.env.local
+.env.*.local
+
+# Broker config (may contain encrypted credentials)
+# Uncomment if your broker.yaml has no sensitive data:
+# !broker.yaml
+broker.yaml
+
+# Audit logs
+broker-audit.log
+
+# Package tarballs
+*.tgz
+
+# Coverage
+coverage/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Prisma generated client (regenerated on install)
+apps/web/node_modules/.prisma/
+
+# Claude Code project files
+.claude/

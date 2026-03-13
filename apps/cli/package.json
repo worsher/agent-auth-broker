@@ -1,0 +1,27 @@
+{
+  "name": "@broker/cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "broker": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch --experimental-strip-types src/index.ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@broker/local-runtime": "workspace:*",
+    "@broker/connectors": "workspace:*",
+    "@broker/crypto": "workspace:*",
+    "@broker/shared-types": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "commander": "^13.1.0",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.37",
+    "typescript": "^5.7.0"
+  }
+}

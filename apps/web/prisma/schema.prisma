@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 管理员用户
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  role      UserRole @default(OWNER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  agents      Agent[]
+  credentials Credential[]
+  auditLogs   AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
+// 注册的 Agent
+// 每个使用 broker 的 Claude Agent / OpenClaw 实例都需要注册
+model Agent {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // Agent Token 安全存储：bcrypt hash，不存明文
+  tokenHash   String    @unique
+  // 前 12 个字符（"agnt_" + 7 chars），用于快速查询，非敏感
+  tokenPrefix String    @unique
+
+  isActive    Boolean   @default(true)
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  policies  AgentPolicy[]
+  auditLogs AuditLog[]
+
+  @@index([ownerId])
+  @@map("agents")
+}
+
+// 第三方凭证（加密存储）
+model Credential {
+  id      String @id @default(cuid())
+  name    String
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  // connector id，如 "github" | "feishu"
+  connectorId String
+
+  // AES-256-GCM 加密的凭证 JSON（含 access_token 等）
+  encryptedData   String @db.Text
+  // 加密后的 DEK（用于解密 encryptedData）
+  encryptionKeyId String @db.Text
+
+  // OAuth 相关
+  oauthScopes String[]
+  expiresAt   DateTime?
+
+  status    CredentialStatus @default(ACTIVE)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  policies  AgentPolicy[]
+  auditLogs AuditLog[]
+
+  @@index([ownerId, connectorId])
+  @@map("credentials")
+}
+
+enum CredentialStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  REFRESH_REQUIRED
+}
+
+// 权限策略：Agent 可以用哪个凭证执行哪些操作
+model AgentPolicy {
+  id           String     @id @default(cuid())
+  agentId      String
+  agent        Agent      @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  credentialId String
+  credential   Credential @relation(fields: [credentialId], references: [id], onDelete: Cascade)
+
+  // 允许的操作列表，格式：["github:create_issue", "github:list_repos"]
+  // 空数组 = 允许该 connector 的所有操作（谨慎使用）
+  allowedActions String[]
+
+  // 参数级别的约束（JSON Schema 格式）
+  // 例：{"repo":{"pattern":"^myorg/.*"}} 限制只能操作特定 org
+  paramConstraints Json?
+
+  isActive  Boolean   @default(true)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([agentId, credentialId])
+  @@map("agent_policies")
+}
+
+// 不可变审计日志（应用层只 INSERT，无 UPDATE/DELETE）
+model AuditLog {
+  id String @id @default(cuid())
+
+  // 操作主体（二选一）
+  agentId String?
+  agent   Agent?  @relation(fields: [agentId], references: [id])
+  userId  String?
+  user    User?   @relation(fields: [userId], references: [id])
+
+  // 操作内容
+  credentialId String?
+  credential   Credential? @relation(fields: [credentialId], references: [id])
+  connectorId  String?
+  action       String?
+
+  // 脱敏后的请求摘要（不含 token/secret）
+  requestSummary  Json?
+  responseStatus  Int?
+  errorMessage    String?
+
+  // 元数据
+  ipAddress String?
+  userAgent String?
+
+  permissionResult String // PermissionResult enum 值
+
+  createdAt DateTime @default(now())
+
+  @@index([agentId, createdAt])
+  @@index([credentialId, createdAt])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
