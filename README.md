@@ -211,6 +211,10 @@ policies:
     credential: github-main
     actions:
       - "*"                               # 允许所有操作
+    # 或使用 scope 组（自动展开为多个操作）：
+    # actions:
+    #   - "github:read"                   # → list_repos, get_repo, list_issues, get_issue, list_prs, get_file, search_code
+    #   - "github:write"                  # → create_issue, comment_issue, create_pr
     # 或精确指定：
     # actions:
     #   - "github:list_repos"
@@ -221,7 +225,7 @@ policies:
     #   repo:
     #     pattern: "^myorg/.*"            # repo 参数必须以 myorg/ 开头
 
-    # 可选：速率限制
+    # 可选：速率限制（滑动窗口算法）
     # rate_limit:
     #   max_calls: 100
     #   window_seconds: 3600
@@ -229,6 +233,15 @@ policies:
     # 可选：策略过期时间
     # expires_at: "2025-12-31T23:59:59Z"
 ```
+
+### Scope 组
+
+预定义的 scope 组可简化权限配置，一个 scope 名称自动展开为多个具体操作：
+
+| Scope | 展开为 |
+|-------|--------|
+| `github:read` | `list_repos`, `get_repo`, `list_issues`, `get_issue`, `list_prs`, `get_file`, `search_code` |
+| `github:write` | `create_issue`, `comment_issue`, `create_pr` |
 
 ### 审计日志
 
@@ -260,6 +273,12 @@ broker agent create <id> [-n name]               # 创建 Agent
 broker agent list                                # 列出所有 Agent
 broker agent remove <id>                         # 移除 Agent
 
+# Token 管理
+broker token generate <agent-id>                 # 生成 Agent Token（仅显示一次）
+broker token generate <agent-id> --force         # 覆盖已有 token
+broker token revoke <agent-id>                   # 撤销 Token
+broker token list                                # 列出所有 Agent 的 Token 状态
+
 # 凭证管理
 broker credential add <connector> --env <VAR>    # 添加环境变量引用凭证
 broker credential add <connector> --token <val>  # 直接指定 token（不推荐）
@@ -271,12 +290,50 @@ broker policy set <agent> <credential> [--actions "*"]    # 设置策略
 broker policy list                                        # 列出所有策略
 broker policy remove <agent> <credential>                 # 移除策略
 
+# 测试操作
+broker test <connector> <action>                 # 测试 connector 操作
+broker test github list_repos                    # 示例：列出 GitHub 仓库
+broker test github list_issues -p '{"repo":"owner/repo"}'  # 带参数
+broker test github create_issue --dry-run        # 仅权限检查，不实际调用
+
 # 启动 MCP Server
-broker serve                                     # stdio 模式
+broker serve                                     # stdio 模式（支持配置热重载）
 broker serve --agent <id>                        # 指定 Agent ID
+
+# Web UI（File Mode 可视化管理）
+broker ui                                        # 启动 Web UI（默认端口 3200）
+broker ui --port 8080                            # 自定义端口
 ```
 
 > **提示：** 未全局安装时使用 `node apps/cli/dist/index.js` 替代 `broker`。
+
+### Token 认证
+
+File Mode 支持通过 Token 认证 Agent 身份：
+
+1. 生成 Token：`broker token generate my-agent`
+2. Token 的 SHA-256 哈希存入 `broker.yaml` 的 `token_hash` 字段
+3. 在 MCP 配置中设置环境变量 `BROKER_AGENT_TOKEN` 传入 token
+4. MCP Server 启动时自动通过 hash 比对确定 Agent 身份
+
+未设置 `BROKER_AGENT_TOKEN` 时，退回到 `--agent` 参数或默认使用第一个 Agent。
+
+### 配置热重载
+
+`broker serve` 运行时会自动监视 `broker.yaml` 文件变更，修改配置后无需重启 MCP Server：
+
+- 使用 `fs.watch` 监视文件，300ms 防抖
+- 重载失败时保留旧配置并输出错误日志
+- 进程退出时自动清理 watcher
+
+### File Mode Web UI
+
+`broker ui` 启动一个轻量级 Web 界面（默认 `http://localhost:3200`），方便不熟悉命令行的用户管理 `broker.yaml`：
+
+- 使用 Node.js 内置 `http` 模块，零外部依赖
+- 支持 Agents、Credentials、Policies 的增删操作
+- YAML 预览（token 自动脱敏）
+- 所有变更实时写入 `broker.yaml` 文件
 
 ---
 
@@ -505,7 +562,7 @@ pnpm build
 # 仅构建 Web / MCP Server / CLI
 pnpm build:web
 pnpm build:mcp
-pnpm build --filter=@broker/cli
+pnpm build --filter=agent-auth-broker
 
 # 开发模式（热重载）
 pnpm dev
