@@ -10,6 +10,7 @@ import { agentCommand } from './commands/agent.js'
 import { policyCommand } from './commands/policy.js'
 import { uiCommand } from './commands/ui.js'
 import { tokenCommand } from './commands/token.js'
+import { testCommand } from './commands/test.js'
 
 const program = new Command()
 
@@ -27,5 +28,6 @@ program.addCommand(agentCommand)
 program.addCommand(policyCommand)
 program.addCommand(uiCommand)
 program.addCommand(tokenCommand)
+program.addCommand(testCommand)
 
 program.parse()
