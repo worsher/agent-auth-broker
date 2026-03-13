@@ -54,24 +54,45 @@ agent-auth-broker/
 
 ---
 
-## 快速开始：File Mode（推荐）
+## 安装
 
-最轻量的接入方式，只需一个 YAML 配置文件和环境变量，无需数据库、无需 Web Server。
+### 方式一：npm 全局安装（推荐）
 
-### 1. 安装
+```bash
+npm install -g agent-auth-broker
+broker --version
+```
+
+### 方式二：npx 直接使用（无需安装）
+
+```bash
+npx agent-auth-broker init
+npx agent-auth-broker serve
+```
+
+### 方式三：从源码构建
 
 ```bash
 git clone <repo-url>
 cd agent-auth-broker
 pnpm install
 pnpm build
+# 使用 node 直接运行
+node apps/cli/dist/index.js --version
 ```
 
-### 2. 初始化配置
+---
+
+## 快速开始：File Mode（推荐）
+
+最轻量的接入方式，只需一个 YAML 配置文件和环境变量，无需数据库、无需 Web Server。
+
+### 1. 初始化配置
 
 ```bash
-# 使用 CLI 生成 broker.yaml 模板
-node apps/cli/dist/index.js init
+broker init
+# 或使用 npx：npx agent-auth-broker init
+# 或从源码：node apps/cli/dist/index.js init
 ```
 
 生成的 `broker.yaml`：
@@ -99,23 +120,20 @@ audit:
   output: stdout                  # stdout 或 file
 ```
 
-### 3. 设置环境变量
+### 2. 设置环境变量
 
 ```bash
 export GITHUB_TOKEN="ghp_your_personal_access_token"
 ```
 
-### 4. 验证和诊断
+### 3. 验证和诊断
 
 ```bash
-# 验证配置文件格式
-node apps/cli/dist/index.js validate
-
-# 诊断凭证连接（会尝试调用 GitHub API）
-node apps/cli/dist/index.js diagnose
+broker validate    # 验证配置文件格式
+broker diagnose    # 诊断凭证连接（会尝试调用 GitHub API）
 ```
 
-### 5. 配置 MCP Server
+### 4. 配置 MCP Server
 
 在 `claude_desktop_config.json` 或 `.claude/settings.json` 中：
 

@@ -1,11 +1,15 @@
 {
-  "name": "@broker/cli",
-  "version": "0.0.1",
-  "private": true,
+  "name": "agent-auth-broker",
+  "version": "0.1.0",
+  "description": "AI Agent 集中式凭证管理与授权代理 CLI 工具",
   "type": "module",
+  "license": "MIT",
   "bin": {
     "broker": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "node --watch --experimental-strip-types src/index.ts",
@@ -23,5 +27,18 @@
   "devDependencies": {
     "@types/node": "^20.19.37",
     "typescript": "^5.7.0"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "auth",
+    "broker",
+    "mcp",
+    "credential",
+    "security"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/agent-auth-broker"
   }
 }
