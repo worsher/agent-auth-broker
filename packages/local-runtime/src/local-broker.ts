@@ -1,4 +1,4 @@
-import { getConnector, listConnectors } from '@broker/connectors'
+import { getConnector, listConnectors, expandScopes } from '@broker/connectors'
 import type { BrokerCallResult } from '@broker/shared-types'
 import type { LocalStore } from './local-store.js'
 import { checkLocalPermission } from './local-permission.js'
@@ -42,12 +42,13 @@ export class LocalBroker {
       if (!conn) continue
 
       const actions = conn.getActions()
-      const actionsAllowAll = policy.actions.length === 0
-        || (policy.actions.length === 1 && policy.actions[0] === '*')
+      const expandedActions = expandScopes(policy.actions)
+      const actionsAllowAll = expandedActions.length === 0
+        || (expandedActions.length === 1 && expandedActions[0] === '*')
 
       for (const action of actions) {
         const fullAction = `${connectorId}:${action.id}`
-        if (!actionsAllowAll && !policy.actions.includes(fullAction)) continue
+        if (!actionsAllowAll && !expandedActions.includes(fullAction)) continue
 
         tools.push({
           connector: connectorId,

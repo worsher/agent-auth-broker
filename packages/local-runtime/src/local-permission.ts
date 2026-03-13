@@ -1,4 +1,5 @@
 import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared-types'
+import { expandScopes } from '@broker/connectors'
 import type { LocalStore } from './local-store.js'
 
 /**
@@ -24,11 +25,12 @@ export function checkLocalPermission(
     return { result: 'DENIED_NO_POLICY', message: `未找到 agent "${agentId}" 对 connector "${connectorId}" 的策略` }
   }
 
-  // 3. 检查 allowedActions（["*"] 或空数组 = 允许所有）
-  const actionsAllowAll = policy.actions.length === 0
-    || (policy.actions.length === 1 && policy.actions[0] === '*')
+  // 3. 检查 allowedActions（["*"] 或空数组 = 允许所有），支持 scope 展开
+  const expandedActions = expandScopes(policy.actions)
+  const actionsAllowAll = expandedActions.length === 0
+    || (expandedActions.length === 1 && expandedActions[0] === '*')
 
-  if (!actionsAllowAll && !policy.actions.includes(fullAction)) {
+  if (!actionsAllowAll && !expandedActions.includes(fullAction)) {
     return {
       result: 'DENIED_ACTION_NOT_ALLOWED',
       message: `操作 "${fullAction}" 不在允许列表中`,

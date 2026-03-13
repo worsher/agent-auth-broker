@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
-import { loadConfig, LocalStore, LocalBroker } from '@broker/local-runtime'
+import { loadConfig, LocalStore, LocalBroker, authenticateByToken } from '@broker/local-runtime'
 import { resolveConfigPath, logError } from '../utils.js'
 
 export const serveCommand = new Command('serve')
@@ -27,7 +27,22 @@ export const serveCommand = new Command('serve')
 
     const store = new LocalStore(config)
     const broker = new LocalBroker(store)
-    const agentId = opts.agent ?? config.agents[0].id
+
+    // Token 认证：优先使用 BROKER_AGENT_TOKEN 环境变量
+    let agentId: string
+    const envToken = process.env.BROKER_AGENT_TOKEN
+    if (envToken) {
+      const matched = authenticateByToken(envToken, store)
+      if (!matched) {
+        logError('BROKER_AGENT_TOKEN 认证失败：token 不匹配任何 agent')
+        process.exitCode = 1
+        return
+      }
+      agentId = matched.id
+      console.error(`[broker-cli] Token 认证成功: ${matched.name} (${agentId})`)
+    } else {
+      agentId = opts.agent ?? config.agents[0].id
+    }
 
     const agent = store.getAgent(agentId)
     if (!agent) {

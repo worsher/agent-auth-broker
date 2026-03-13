@@ -16,6 +16,8 @@ const ParamConstraintSchema = z.record(
 const AgentSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  token_hash: z.string().optional(),
+  token_prefix: z.string().optional(),
 })
 
 const CredentialSchema = z.object({

@@ -96,6 +96,13 @@ export function generateAgentToken(): { token: string; prefix: string } {
 }
 
 /**
+ * 计算 token 的 SHA-256 哈希值
+ */
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex')
+}
+
+/**
  * 生成 MEK（仅用于初始化，运行时从环境变量读取）
  */
 export function generateMasterKey(): string {

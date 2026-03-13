@@ -66,4 +66,22 @@ export class LocalStore {
 
     return result
   }
+
+  /**
+   * 通过 token hash 查找对应的 agent
+   */
+  findAgentByTokenHash(hash: string): AgentConfig | undefined {
+    return this.listAgents().find(a => a.token_hash === hash)
+  }
+
+  /**
+   * 重新加载配置
+   */
+  reload(config: BrokerConfig): void {
+    this.agents = new Map(config.agents.map(a => [a.id, a]))
+    this.credentials = new Map(config.credentials.map(c => [c.id, c]))
+    this.policies = config.policies
+    ;(this as { audit: AuditConfig }).audit = config.audit
+    ;(this as { encryptionKey: string | undefined }).encryptionKey = config.encryption_key
+  }
 }
