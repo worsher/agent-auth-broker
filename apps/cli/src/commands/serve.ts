@@ -6,7 +6,7 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
-import { loadConfig, LocalStore, LocalBroker, authenticateByToken } from '@broker/local-runtime'
+import { loadConfig, LocalStore, LocalBroker, authenticateByToken, ConfigWatcher } from '@broker/local-runtime'
 import { resolveConfigPath, logError } from '../utils.js'
 
 export const serveCommand = new Command('serve')
@@ -158,7 +158,16 @@ export const serveCommand = new Command('serve')
       }
     })
 
+    // 启动配置文件热重载
+    const watcher = new ConfigWatcher(configPath, store)
+    watcher.start()
+    console.error('[broker-cli] 配置热重载已启用')
+
     const transport = new StdioServerTransport()
     await server.connect(transport)
     console.error('[broker-cli] MCP Server started (stdio mode)')
+
+    // 进程退出时停止 watcher
+    process.on('SIGINT', () => { watcher.stop(); process.exit(0) })
+    process.on('SIGTERM', () => { watcher.stop(); process.exit(0) })
   })
