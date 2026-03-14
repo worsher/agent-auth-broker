@@ -11,21 +11,23 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsup",
     "dev": "node --watch --experimental-strip-types src/index.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@broker/local-runtime": "workspace:*",
-    "@broker/connectors": "workspace:*",
-    "@broker/crypto": "workspace:*",
-    "@broker/shared-types": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.12.0",
     "commander": "^13.1.0",
-    "yaml": "^2.7.0"
+    "yaml": "^2.7.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@broker/connectors": "workspace:*",
+    "@broker/crypto": "workspace:*",
+    "@broker/local-runtime": "workspace:*",
+    "@broker/shared-types": "workspace:*",
     "@types/node": "^20.19.37",
+    "tsup": "^8.5.1",
     "typescript": "^5.7.0"
   },
   "keywords": [
