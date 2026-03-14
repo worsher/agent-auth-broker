@@ -1,5 +1,5 @@
 import { Command } from 'commander'
-import { resolveConfigPath, readRawConfig, writeConfig, log, logSuccess, logError } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, readRawConfig, writeConfig, log, logSuccess, logError } from '../utils.js'
 
 interface RawAgent {
   id: string
@@ -17,6 +17,10 @@ agentCommand
   .option('-n, --name <name>', 'Agent 名称', undefined)
   .action((id: string, opts: { config?: string; name?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const agents = (config.agents as RawAgent[] | undefined) ?? []
 
@@ -42,6 +46,10 @@ agentCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const agents = (config.agents as RawAgent[] | undefined) ?? []
 
@@ -63,6 +71,10 @@ agentCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((id: string, opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const agents = (config.agents as RawAgent[] | undefined) ?? []
 

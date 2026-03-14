@@ -7,7 +7,7 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
 import { loadConfig, LocalStore, LocalBroker, authenticateByToken, ConfigWatcher } from '@broker/local-runtime'
-import { resolveConfigPath, logError } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, logError } from '../utils.js'
 
 export const serveCommand = new Command('serve')
   .description('启动 MCP Server（stdio 模式）')
@@ -15,6 +15,10 @@ export const serveCommand = new Command('serve')
   .option('-a, --agent <id>', 'Agent ID（默认使用配置中的第一个 agent）', undefined)
   .action(async (opts: { config?: string; agent?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
 
     let config
     try {

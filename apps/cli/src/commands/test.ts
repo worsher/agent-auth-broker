@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { loadConfig, LocalStore, LocalBroker, authenticateByToken, checkLocalPermission } from '@broker/local-runtime'
-import { resolveConfigPath, log, logError, logSuccess } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, log, logError, logSuccess } from '../utils.js'
 
 export const testCommand = new Command('test')
   .description('测试调用 connector 操作')
@@ -16,6 +16,10 @@ export const testCommand = new Command('test')
     opts: { config?: string; agent?: string; params: string; dryRun: boolean }
   ) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
 
     let config
     try {

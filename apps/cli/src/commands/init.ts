@@ -1,14 +1,36 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { Command } from 'commander'
 import { stringify as stringifyYaml } from 'yaml'
-import { resolveConfigPath, logSuccess, logError, logWarn } from '../utils.js'
+import { resolveConfigPath, getGlobalConfigDir, getGlobalConfigPath, logSuccess, logError, logWarn } from '../utils.js'
+
+const DEFAULT_CONFIG_NAME = 'broker.yaml'
 
 export const initCommand = new Command('init')
   .description('初始化 broker.yaml 配置文件')
   .option('-c, --config <path>', '配置文件路径', undefined)
+  .option('-g, --global', '在全局配置目录创建配置文件 (~/.broker/config/)', false)
   .option('--force', '覆盖已存在的配置文件', false)
-  .action((opts: { config?: string; force: boolean }) => {
-    const configPath = resolveConfigPath(opts.config)
+  .action((opts: { config?: string; global: boolean; force: boolean }) => {
+    if (opts.global && opts.config) {
+      logError('--global 和 --config 不能同时使用')
+      process.exitCode = 1
+      return
+    }
+
+    let configPath: string
+
+    if (opts.global) {
+      const globalDir = getGlobalConfigDir()
+      if (!fs.existsSync(globalDir)) {
+        fs.mkdirSync(globalDir, { recursive: true })
+      }
+      configPath = getGlobalConfigPath()
+    } else if (opts.config) {
+      configPath = path.resolve(opts.config)
+    } else {
+      configPath = path.resolve(DEFAULT_CONFIG_NAME)
+    }
 
     if (fs.existsSync(configPath) && !opts.force) {
       logWarn(`配置文件已存在: ${configPath}`)

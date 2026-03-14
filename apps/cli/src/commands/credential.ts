@@ -1,7 +1,7 @@
 import { Command } from 'commander'
 import { listConnectors } from '@broker/connectors'
 import { encryptCredential, generateMasterKey } from '@broker/crypto'
-import { resolveConfigPath, readRawConfig, writeConfig, log, logSuccess, logError, logWarn } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, readRawConfig, writeConfig, log, logSuccess, logError, logWarn } from '../utils.js'
 
 interface RawCredential {
   id: string
@@ -23,6 +23,10 @@ credentialCommand
   .option('--token <token>', '直接指定 token 值', undefined)
   .action((connector: string, opts: { config?: string; id?: string; env?: string; token?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const credentialId = opts.id ?? `${connector}-main`
 
     // 验证 connector 是否支持
@@ -76,6 +80,10 @@ credentialCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const credentials = (config.credentials as RawCredential[] | undefined) ?? []
 
@@ -102,6 +110,10 @@ credentialCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((id: string, opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const credentials = (config.credentials as RawCredential[] | undefined) ?? []
 

@@ -1,13 +1,17 @@
 import { Command } from 'commander'
 import { loadConfig, LocalStore, LocalBroker } from '@broker/local-runtime'
 import { listConnectors } from '@broker/connectors'
-import { resolveConfigPath, logSuccess, logError, logWarn, log } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, logSuccess, logError, logWarn, log } from '../utils.js'
 
 export const diagnoseCommand = new Command('diagnose')
   .description('诊断配置和凭证连接状态')
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action(async (opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
 
     // 1. 加载配置
     log('1. 加载配置...')

@@ -1,5 +1,5 @@
 import { Command } from 'commander'
-import { resolveConfigPath, readRawConfig, writeConfig, log, logSuccess, logError } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, readRawConfig, writeConfig, log, logSuccess, logError } from '../utils.js'
 
 interface RawPolicy {
   agent: string
@@ -20,6 +20,10 @@ policyCommand
   .option('--actions <actions>', '允许的操作列表，逗号分隔（"*" 表示全部允许）', '*')
   .action((agentId: string, credentialId: string, opts: { config?: string; actions: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const policies = (config.policies as RawPolicy[] | undefined) ?? []
 
@@ -49,6 +53,10 @@ policyCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const policies = (config.policies as RawPolicy[] | undefined) ?? []
 
@@ -72,6 +80,10 @@ policyCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((agentId: string, credentialId: string, opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const policies = (config.policies as RawPolicy[] | undefined) ?? []
 

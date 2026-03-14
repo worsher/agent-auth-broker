@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import { generateAgentToken, hashToken } from '@broker/crypto'
-import { resolveConfigPath, readRawConfig, writeConfig, log, logSuccess, logError } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists, readRawConfig, writeConfig, log, logSuccess, logError } from '../utils.js'
 
 interface RawAgent {
   id: string
@@ -20,6 +20,10 @@ tokenCommand
   .option('-f, --force', '覆盖已有 token', false)
   .action((agentId: string, opts: { config?: string; force: boolean }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const agents = (config.agents as RawAgent[] | undefined) ?? []
 
@@ -60,6 +64,10 @@ tokenCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((agentId: string, opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const agents = (config.agents as RawAgent[] | undefined) ?? []
 
@@ -90,6 +98,10 @@ tokenCommand
   .option('-c, --config <path>', '配置文件路径', undefined)
   .action((opts: { config?: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const config = readRawConfig(configPath)
     const agents = (config.agents as RawAgent[] | undefined) ?? []
 
