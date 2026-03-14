@@ -31,3 +31,9 @@ jobs:
           pnpm --filter @broker/web db:generate
 
       - run: pnpm build
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test

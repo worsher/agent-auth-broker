@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev"
   },
   "dependencies": {
+    "@broker/core": "workspace:*",
     "@broker/crypto": "workspace:*",
     "@broker/connectors": "workspace:*",
     "@broker/shared-types": "workspace:*",

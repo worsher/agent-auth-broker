@@ -1,9 +1,15 @@
+import type { PrismaClient } from '@prisma/client'
 import { decryptCredential } from '@broker/crypto'
 import type { DecryptedCredential } from '@broker/shared-types'
 import { getPrisma } from './db.js'
 
-export async function loadCredential(credentialId: string): Promise<DecryptedCredential> {
-  const prisma = getPrisma()
+/**
+ * 解密并加载凭证
+ * @param credentialId 凭证 ID
+ * @param prismaClient 可选的 Prisma 实例
+ */
+export async function loadCredential(credentialId: string, prismaClient?: PrismaClient): Promise<DecryptedCredential> {
+  const prisma = prismaClient ?? getPrisma()
   const cred = await prisma.credential.findUniqueOrThrow({
     where: { id: credentialId },
     select: { encryptedData: true, encryptionKeyId: true, status: true, expiresAt: true },

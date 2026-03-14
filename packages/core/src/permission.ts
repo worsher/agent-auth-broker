@@ -1,8 +1,14 @@
+import type { PrismaClient } from '@prisma/client'
 import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared-types'
 import { getPrisma } from './db.js'
 
-export async function checkPermission(input: PermissionCheckInput): Promise<PermissionCheckResult> {
-  const prisma = getPrisma()
+/**
+ * 数据库模式的权限检查
+ * @param input 权限检查输入
+ * @param prismaClient 可选的 Prisma 实例，不传则使用 core 内部的全局实例
+ */
+export async function checkPermission(input: PermissionCheckInput, prismaClient?: PrismaClient): Promise<PermissionCheckResult> {
+  const prisma = prismaClient ?? getPrisma()
   const { agentId, connectorId, action } = input
   const fullAction = `${connectorId}:${action}`
 

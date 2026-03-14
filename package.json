@@ -10,6 +10,8 @@
     "build:web": "turbo run build --filter=@broker/web",
     "build:mcp": "turbo run build --filter=@broker/mcp-server",
     "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "db:generate": "turbo run db:generate --filter=@broker/web",
     "db:push": "turbo run db:push --filter=@broker/web",
@@ -17,6 +19,7 @@
   },
   "devDependencies": {
     "turbo": "^2.3.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.0"
   }
 }
