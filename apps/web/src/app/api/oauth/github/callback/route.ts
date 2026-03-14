@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { stateStore } from '@/lib/oauth/state-store'
+import { consumeOAuthState } from '@/lib/oauth/state-store'
 import { completeGitHubOAuth } from '@/lib/oauth/github'
 import { prisma } from '@/lib/db/prisma'
 
@@ -17,14 +17,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard/credentials?error=missing_params', request.url))
   }
 
-  // 验证 state（CSRF 防护）
-  const stateData = stateStore.get(state)
-  if (!stateData || stateData.expiresAt < Date.now()) {
-    stateStore.delete(state)
+  // 验证 state（CSRF 防护，一次性消费）
+  const stateData = await consumeOAuthState(state)
+  if (!stateData) {
     return NextResponse.redirect(new URL('/dashboard/credentials?error=invalid_state', request.url))
   }
 
-  stateStore.delete(state)
   const { userId } = stateData
 
   try {

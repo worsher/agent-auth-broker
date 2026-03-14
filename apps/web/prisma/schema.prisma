@@ -152,3 +152,15 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+// OAuth 状态存储（CSRF 防护）
+model OAuthState {
+  state       String   @id
+  userId      String
+  connectorId String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@index([expiresAt])
+  @@map("oauth_states")
+}

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: 'standalone',
   transpilePackages: ['@broker/crypto', '@broker/connectors', '@broker/shared-types'],
   async headers() {
     return [
