@@ -11,7 +11,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && cp ../../README.md ./README.md",
     "dev": "node --watch --experimental-strip-types src/index.ts",
     "clean": "rm -rf dist"
   },
