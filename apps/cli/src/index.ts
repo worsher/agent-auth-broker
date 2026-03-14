@@ -17,7 +17,7 @@ const program = new Command()
 program
   .name('broker')
   .description('Agent Auth Broker CLI — AI Agent 凭证管理与授权代理')
-  .version('0.0.1')
+  .version(PKG_VERSION)
 
 program.addCommand(initCommand)
 program.addCommand(validateCommand)

@@ -1,7 +1,9 @@
 import { defineConfig } from 'tsup'
 import path from 'path'
+import { readFileSync } from 'fs'
 
 const packagesDir = path.resolve(__dirname, '../../packages')
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'))
 
 export default defineConfig({
   entry: ['src/index.ts'],
@@ -14,6 +16,9 @@ export default defineConfig({
   dts: false,
   noExternal: [/^@broker\//],
   external: ['commander', 'yaml', 'zod', '@modelcontextprotocol/sdk'],
+  define: {
+    'PKG_VERSION': JSON.stringify(pkg.version),
+  },
   esbuildOptions(options) {
     options.alias = {
       '@broker/local-runtime': path.join(packagesDir, 'local-runtime/src/index.ts'),
