@@ -2,50 +2,17 @@
 /**
  * Agent Auth Broker MCP Server
  *
- * 支持三种运行模式（stdio 传输）：
+ * 支持三种运行模式 + 两种传输方式：
  *
- * FILE MODE（推荐个人开发者）：设置 BROKER_CONFIG 指向 broker.yaml，无需数据库
- * {
- *   "mcpServers": {
- *     "auth-broker": {
- *       "command": "node",
- *       "args": ["/path/to/dist/index.js"],
- *       "env": {
- *         "BROKER_CONFIG": "/path/to/broker.yaml",
- *         "GITHUB_TOKEN": "ghp_xxxx"
- *       }
- *     }
- *   }
- * }
+ * 运行模式：
+ * - FILE MODE（推荐个人开发者）：BROKER_CONFIG 指向 broker.yaml，无需数据库
+ * - LOCAL MODE（小团队开发）：DATABASE_URL + BROKER_MASTER_KEY，直连数据库
+ * - REMOTE MODE（生产/多用户）：BROKER_URL，HTTP 调用 Web Server
  *
- * LOCAL MODE（小团队开发）：设置 DATABASE_URL + BROKER_MASTER_KEY，不需要启动 web server
- * {
- *   "mcpServers": {
- *     "auth-broker": {
- *       "command": "node",
- *       "args": ["/path/to/dist/index.js"],
- *       "env": {
- *         "DATABASE_URL": "postgresql://user:pass@localhost:5432/agent_auth_broker",
- *         "BROKER_MASTER_KEY": "64个十六进制字符",
- *         "BROKER_AGENT_TOKEN": "agnt_xxxxxxxxxxxx"
- *       }
- *     }
- *   }
- * }
- *
- * REMOTE MODE（生产/多用户）：设置 BROKER_URL，需要 web server 正在运行
- * {
- *   "mcpServers": {
- *     "auth-broker": {
- *       "command": "node",
- *       "args": ["/path/to/dist/index.js"],
- *       "env": {
- *         "BROKER_URL": "http://localhost:3100",
- *         "BROKER_AGENT_TOKEN": "agnt_xxxxxxxxxxxx"
- *       }
- *     }
- *   }
- * }
+ * 传输方式：
+ * - stdio（默认）：标准 MCP stdio 传输
+ * - http：MCP_TRANSPORT=http MCP_PORT=3200，Streamable HTTP 传输
+ *   可选 MCP_AUTH_TOKEN 启用 Bearer Token 认证
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
@@ -81,148 +48,151 @@ const { listTools, callTool } = mode === 'REMOTE'
 
 console.error(`[broker-mcp] Running in ${mode} mode`)
 
-const server = new Server(
-  { name: 'agent-auth-broker', version: '0.1.0' },
-  { capabilities: { tools: {} } }
-)
+/**
+ * 创建一个配置好 request handler 的 MCP Server 实例
+ * HTTP 模式下每个 session 需要独立实例
+ */
+function createMcpServer(): Server {
+  const server = new Server(
+    { name: 'agent-auth-broker', version: '0.1.0' },
+    { capabilities: { tools: {} } }
+  )
 
-// 列出所有可用工具
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  const tools = await listTools()
+  // 列出所有可用工具
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const tools = await listTools()
 
-  // 固定工具 + 动态生成的 connector 工具
-  const mcpTools: Tool[] = [
-    {
-      name: 'broker_call',
-      description: '通过 Auth Broker 调用第三方服务（GitHub、飞书等），凭证由 Broker 安全管理，当前 Agent 不持有实际凭证',
-      inputSchema: {
-        type: 'object',
-        required: ['connector', 'action', 'params'],
-        properties: {
-          connector: {
-            type: 'string',
-            description: '目标服务名称，如 "github"、"feishu"',
-          },
-          action: {
-            type: 'string',
-            description: '操作名称，如 "create_issue"、"list_repos"',
-          },
-          params: {
-            type: 'object',
-            description: '操作参数，具体字段依 connector 和 action 而定',
-          },
-        },
-      },
-    },
-    {
-      name: 'broker_list_tools',
-      description: '列出当前 Agent 被授权可以使用的所有工具（connector + action 组合）',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          connector: {
-            type: 'string',
-            description: '可选，过滤特定 connector 的工具',
+    const mcpTools: Tool[] = [
+      {
+        name: 'broker_call',
+        description: '通过 Auth Broker 调用第三方服务（GitHub、飞书等），凭证由 Broker 安全管理，当前 Agent 不持有实际凭证',
+        inputSchema: {
+          type: 'object',
+          required: ['connector', 'action', 'params'],
+          properties: {
+            connector: {
+              type: 'string',
+              description: '目标服务名称，如 "github"、"feishu"',
+            },
+            action: {
+              type: 'string',
+              description: '操作名称，如 "create_issue"、"list_repos"',
+            },
+            params: {
+              type: 'object',
+              description: '操作参数，具体字段依 connector 和 action 而定',
+            },
           },
         },
       },
-    },
-  ]
-
-  // 为每个被授权的工具自动生成命名工具（如 github_create_issue）
-  const toolMap = new Map<string, Tool>()
-  for (const t of tools) {
-    const toolName = `${t.connector}_${t.action}`
-    if (toolMap.has(toolName)) continue
-
-    toolMap.set(toolName, {
-      name: toolName,
-      description: `[${t.connectorName}] ${t.description}（凭证：${t.credentialName}）`,
-      inputSchema: {
-        type: 'object',
-        description: `调用 ${t.connectorName} 的 ${t.actionName} 操作，参数请参考 broker_list_tools`,
-      },
-    })
-  }
-
-  return { tools: [...mcpTools, ...toolMap.values()] }
-})
-
-// 处理工具调用
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args = {} } = request.params
-  const params = args as Record<string, unknown>
-
-  try {
-    if (name === 'broker_list_tools') {
-      const tools = await listTools(params.connector as string | undefined)
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(tools, null, 2),
+      {
+        name: 'broker_list_tools',
+        description: '列出当前 Agent 被授权可以使用的所有工具（connector + action 组合）',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            connector: {
+              type: 'string',
+              description: '可选，过滤特定 connector 的工具',
+            },
           },
-        ],
-      }
+        },
+      },
+    ]
+
+    // 为每个被授权的工具自动生成命名工具（如 github_create_issue）
+    const toolMap = new Map<string, Tool>()
+    for (const t of tools) {
+      const toolName = `${t.connector}_${t.action}`
+      if (toolMap.has(toolName)) continue
+
+      toolMap.set(toolName, {
+        name: toolName,
+        description: `[${t.connectorName}] ${t.description}（凭证：${t.credentialName}）`,
+        inputSchema: {
+          type: 'object',
+          description: `调用 ${t.connectorName} 的 ${t.actionName} 操作，参数请参考 broker_list_tools`,
+        },
+      })
     }
 
-    // broker_call 或 connector_action 格式的命名工具
-    let connector: string
-    let action: string
-    let callParams: Record<string, unknown>
+    return { tools: [...mcpTools, ...toolMap.values()] }
+  })
 
-    if (name === 'broker_call') {
-      connector = params.connector as string
-      action = params.action as string
-      callParams = (params.params as Record<string, unknown>) ?? {}
-    } else {
-      // 命名工具：connector_action 格式
-      // 找到第一个 "_" 后的部分作为 action
-      const underscoreIdx = name.indexOf('_')
-      if (underscoreIdx === -1) {
-        return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true }
-      }
-      // 通过 list-tools 确认正确的 connector
-      const allTools = await listTools()
-      const matched = allTools.find(t => `${t.connector}_${t.action}` === name)
-      if (!matched) {
+  // 处理工具调用
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args = {} } = request.params
+    const params = args as Record<string, unknown>
+
+    try {
+      if (name === 'broker_list_tools') {
+        const tools = await listTools(params.connector as string | undefined)
         return {
-          content: [{ type: 'text', text: `No permission for tool: ${name}. Use broker_list_tools to see available tools.` }],
-          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(tools, null, 2) }],
         }
       }
-      connector = matched.connector
-      action = matched.action
-      callParams = params
-    }
 
-    const result = await callTool(connector, action, callParams)
+      let connector: string
+      let action: string
+      let callParams: Record<string, unknown>
 
-    if (!result.success) {
-      const errorText = result.permissionResult
-        ? `Permission denied (${result.permissionResult}): ${result.error}`
-        : `Error: ${result.error}`
-      return { content: [{ type: 'text', text: errorText }], isError: true }
-    }
+      if (name === 'broker_call') {
+        connector = params.connector as string
+        action = params.action as string
+        callParams = (params.params as Record<string, unknown>) ?? {}
+      } else {
+        const underscoreIdx = name.indexOf('_')
+        if (underscoreIdx === -1) {
+          return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true }
+        }
+        const allTools = await listTools()
+        const matched = allTools.find(t => `${t.connector}_${t.action}` === name)
+        if (!matched) {
+          return {
+            content: [{ type: 'text', text: `No permission for tool: ${name}. Use broker_list_tools to see available tools.` }],
+            isError: true,
+          }
+        }
+        connector = matched.connector
+        action = matched.action
+        callParams = params
+      }
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result.data, null, 2),
-        },
-      ],
+      const result = await callTool(connector, action, callParams)
+
+      if (!result.success) {
+        const errorText = result.permissionResult
+          ? `Permission denied (${result.permissionResult}): ${result.error}`
+          : `Error: ${result.error}`
+        return { content: [{ type: 'text', text: errorText }], isError: true }
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result.data, null, 2) }],
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      return { content: [{ type: 'text', text: `Internal error: ${message}` }], isError: true }
     }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return { content: [{ type: 'text', text: `Internal error: ${message}` }], isError: true }
-  }
-})
+  })
+
+  return server
+}
+
+// 传输方式选择
+const transport = process.env.MCP_TRANSPORT?.toLowerCase()
 
 async function main() {
-  const transport = new StdioServerTransport()
-  await server.connect(transport)
-  console.error('[broker-mcp] MCP Server started (stdio mode)')
+  if (transport === 'http') {
+    const port = parseInt(process.env.MCP_PORT ?? '3200', 10)
+    const { startHttpTransport } = await import('./http-transport.js')
+    await startHttpTransport(createMcpServer, port)
+  } else {
+    const server = createMcpServer()
+    const stdioTransport = new StdioServerTransport()
+    await server.connect(stdioTransport)
+    console.error('[broker-mcp] MCP Server started (stdio mode)')
+  }
 }
 
 main().catch((err) => {
