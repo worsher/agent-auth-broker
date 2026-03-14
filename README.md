@@ -1,129 +1,129 @@
 # Agent Auth Broker
 
-[English](README.en.md)
+[中文](README-zh.md)
 
-AI Agent 集中式凭证管理与授权代理服务。Agent 不直接持有任何 API Key 或 OAuth Token，而是通过 Broker 发起调用，Broker 负责权限校验、凭证注入、执行代理和审计日志。
+A centralized credential management and authorization proxy for AI Agents. Agents never hold any API keys or OAuth tokens directly. Instead, they call the Broker, which handles permission enforcement, credential injection, execution, and audit logging.
 
 ---
 
-## 架构概览
+## Architecture
 
 ```
-Agent（Claude / OpenClaw 等）
+AI Agent (Claude / OpenClaw / etc.)
   |
   |  broker_call(connector, action, params)
   v
 MCP Server
   |
-  |  验证 Agent Token
+  |  Validates Agent Token
   v
 Broker Core
-  |  权限检查 -> 凭证解密 -> 执行
+  |  Permission check -> Credential decryption -> Execution
   v
-第三方 API（GitHub 等）
+Third-party API (GitHub, etc.)
   |
-  |  Bearer Token 由 Broker 注入，Agent 不可见
+  |  Bearer Token injected by Broker, invisible to Agent
   v
-响应结果返回给 Agent
+Response returned to Agent
 ```
 
-**核心优势：**
+**Key benefits:**
 
-- Agent 永远不接触真实凭证，Token 泄露风险为零
-- 操作级别细粒度权限控制（如只允许 `github:list_repos`，禁止 `github:create_issue`）
-- 参数约束，限制操作范围（如只允许访问特定组织的仓库）
-- 完整的防篡改审计日志（HMAC-SHA256 哈希链）
+- Agents never touch real credentials — token leakage risk is eliminated
+- Operation-level fine-grained access control (e.g., allow `github:list_repos`, deny `github:create_issue`)
+- Parameter constraints to scope operations (e.g., restrict access to a specific GitHub organization)
+- Tamper-evident audit log chain (HMAC-SHA256)
 
 ---
 
-## 项目结构
+## Repository Structure
 
 ```
 agent-auth-broker/
 ├── apps/
-│   ├── web/                    # Next.js 14 — Admin UI + Broker API（PostgreSQL）
+│   ├── web/                    # Next.js 14 — Admin UI + Broker API (PostgreSQL)
 │   │   └── prisma/schema.prisma
-│   ├── mcp-server/             # MCP Server（stdio + Streamable HTTP 传输）
-│   └── cli/                    # CLI 工具 — broker init/serve/validate/ui
+│   ├── mcp-server/             # MCP Server (stdio + Streamable HTTP transport)
+│   └── cli/                    # CLI tool — broker init/serve/validate/ui
 ├── packages/
-│   ├── local-runtime/          # 纯本地运行时（YAML 驱动，无需数据库）
-│   ├── core/                   # 核心业务逻辑（数据库模式）
-│   ├── connectors/             # 第三方服务适配器（支持插件化动态加载）
-│   ├── crypto/                 # AES-256-GCM 加密工具
-│   └── shared-types/           # 共享类型定义
-├── Dockerfile                  # 多阶段 Docker 构建
-├── docker-compose.yml          # web + postgres 一键部署
-├── .github/workflows/          # CI/CD（build + typecheck + test + npm publish）
-├── package.json                # pnpm monorepo
+│   ├── local-runtime/          # Local runtime (YAML-driven, no database required)
+│   ├── core/                   # Core business logic (database schema)
+│   ├── connectors/             # Third-party service adapters (plugin-based dynamic loading)
+│   ├── crypto/                 # AES-256-GCM encryption utilities
+│   └── shared-types/           # Shared TypeScript type definitions
+├── Dockerfile                  # Multi-stage Docker build
+├── docker-compose.yml          # One-command web + postgres deployment
+├── .github/workflows/          # CI/CD (build + typecheck + test + npm publish)
+├── package.json                # pnpm monorepo root
 └── turbo.json
 ```
 
 ---
 
-## 核心特性
+## Features
 
-**安全**
-- AES-256-GCM 双层加密（MEK 加密 DEK，DEK 加密凭证数据）
-- ReDoS 防护（safe-regex2 验证正则模式安全性）
-- 审计日志哈希链防篡改（HMAC-SHA256）
-- 安全响应头（X-Content-Type-Options、X-Frame-Options、CSP 等）
-- OAuth State 数据库持久化，防 CSRF 攻击
-- Token SHA-256 哈希比对认证
+**Security**
+- AES-256-GCM two-layer encryption (MEK encrypts DEK, DEK encrypts credential data)
+- ReDoS protection via safe-regex2 for all regex pattern validation
+- Tamper-evident audit log chain (HMAC-SHA256 hash chain)
+- Secure HTTP response headers (X-Content-Type-Options, X-Frame-Options, CSP, etc.)
+- OAuth State persisted to database to prevent CSRF attacks
+- Token authentication via SHA-256 hash comparison
 
-**权限模型**
-- 操作级别权限控制
-- 参数正则约束（限制操作范围）
-- 速率限制（滑动窗口算法）
-- 策略过期时间
-- Scope 组简化权限配置
+**Permission Model**
+- Operation-level access control
+- Parameter regex constraints to limit operation scope
+- Rate limiting with sliding window algorithm
+- Policy expiration timestamps
+- Scope groups for simplified permission configuration
 
-**可观测性**
-- pino 结构化日志（支持 `BROKER_LOG_LEVEL` 配置）
-- 审计日志输出到 stdout 或文件
-- `/api/health` 健康检查端点
+**Observability**
+- Structured logging via pino (configurable via `BROKER_LOG_LEVEL`)
+- Audit log output to stdout or file
+- `/api/health` endpoint for health checks
 
-**扩展性**
-- Connector 插件化（支持 npm 包或本地路径动态加载）
-- `ConnectorAdapter` 接口含可选的 `validateCredential` 方法
-- 内置 GitHub Connector（10 个操作）
-
----
-
-## 三种运行模式
-
-| 模式 | 适用场景 | 外部依赖 | 配置方式 |
-|------|---------|---------|---------|
-| **File Mode** | 个人开发者、单 Agent | 无 | `broker.yaml` + 环境变量 |
-| **Local Mode** | 小团队本地开发 | PostgreSQL | `.env` + 数据库 |
-| **Remote Mode** | 生产环境、多用户 | PostgreSQL + Web Server | Web UI 管理 |
-
-**模式优先级（MCP Server 启动时自动判断）：**
-
-```
-BROKER_URL 已设置      → Remote Mode（最高优先级）
-DATABASE_URL 已设置    → Local Mode
-BROKER_CONFIG 已设置   → File Mode
-```
+**Extensibility**
+- Plugin-based Connector system (load from npm packages or local paths dynamically)
+- `ConnectorAdapter` interface with optional `validateCredential` method
+- Built-in GitHub Connector with 10 operations
 
 ---
 
-## 安装
+## Operation Modes
 
-### 方式一：npm 全局安装（推荐）
+| Mode | Use Case | External Dependencies | Configuration |
+|------|----------|-----------------------|---------------|
+| **File Mode** | Individual developers, single Agent | None | `broker.yaml` + environment variables |
+| **Local Mode** | Small teams, local development | PostgreSQL | `.env` + database |
+| **Remote Mode** | Production, multi-user | PostgreSQL + Web Server | Managed via Web UI |
+
+**Mode selection priority (resolved automatically at MCP Server startup):**
+
+```
+BROKER_URL is set      -> Remote Mode (highest priority)
+DATABASE_URL is set    -> Local Mode
+BROKER_CONFIG is set   -> File Mode
+```
+
+---
+
+## Installation
+
+### Option 1: Global npm install (recommended)
 
 ```bash
 npm install -g agent-auth-broker
 broker --version
 ```
 
-### 方式二：npx 直接使用（无需安装）
+### Option 2: Run with npx (no installation required)
 
 ```bash
 npx agent-auth-broker init
 npx agent-auth-broker serve
 ```
 
-### 方式三：从源码构建
+### Option 3: Build from source
 
 ```bash
 git clone https://github.com/your-org/agent-auth-broker.git
@@ -135,18 +135,18 @@ node apps/cli/dist/index.js --version
 
 ---
 
-## 快速开始：File Mode
+## Quick Start: File Mode
 
-最轻量的接入方式，只需一个 YAML 配置文件和环境变量，无需数据库和 Web Server。
+The lightest-weight integration — requires only a YAML configuration file and environment variables, with no database or web server.
 
-### 第一步：初始化配置
+### Step 1: Initialize configuration
 
 ```bash
 broker init
-# 或：npx agent-auth-broker init
+# or: npx agent-auth-broker init
 ```
 
-生成的 `broker.yaml`：
+Generated `broker.yaml`:
 
 ```yaml
 version: "1"
@@ -158,35 +158,35 @@ agents:
 credentials:
   - id: github-main
     connector: github
-    token: ${GITHUB_TOKEN}        # 引用环境变量，凭证不落盘
+    token: ${GITHUB_TOKEN}        # References an environment variable — credential never written to disk
 
 policies:
   - agent: my-agent
     credential: github-main
     actions:
-      - "*"                       # 允许所有操作
+      - "*"                       # Allow all operations
 
 audit:
   enabled: true
   output: stdout
 ```
 
-### 第二步：设置环境变量
+### Step 2: Set environment variables
 
 ```bash
 export GITHUB_TOKEN="ghp_your_personal_access_token"
 ```
 
-### 第三步：验证配置
+### Step 3: Validate configuration
 
 ```bash
-broker validate    # 验证配置文件格式
-broker diagnose    # 诊断凭证连接（实际调用 GitHub API 验证）
+broker validate    # Validate configuration file format
+broker diagnose    # Diagnose credential connectivity (calls the GitHub API to verify)
 ```
 
-### 第四步：配置 MCP Server
+### Step 4: Configure the MCP Server
 
-在 `claude_desktop_config.json` 或 `.claude/settings.json` 中添加：
+Add the following to `claude_desktop_config.json` or `.claude/settings.json`:
 
 ```json
 {
@@ -203,7 +203,7 @@ broker diagnose    # 诊断凭证连接（实际调用 GitHub API 验证）
 }
 ```
 
-从源码运行时，将 `"command": "broker"` 替换为：
+When running from source, replace `"command": "broker"` with:
 
 ```json
 "command": "node",
@@ -212,13 +212,13 @@ broker diagnose    # 诊断凭证连接（实际调用 GitHub API 验证）
 
 ---
 
-## broker.yaml 配置详解
+## broker.yaml Configuration Reference
 
-### 凭证配置
+### Credential Configuration
 
-**方式一：环境变量引用（推荐）**
+**Option 1: Environment variable reference (recommended)**
 
-凭证通过 `${ENV_VAR}` 语法引用，明文不写入配置文件：
+Credentials are referenced via `${ENV_VAR}` syntax. No plaintext credentials are written to disk.
 
 ```yaml
 credentials:
@@ -227,13 +227,13 @@ credentials:
     token: ${GITHUB_TOKEN}
 ```
 
-**方式二：AES-256-GCM 加密存储**
+**Option 2: AES-256-GCM encrypted storage**
 
-凭证需要持久化时，配置 `encryption_key` 后使用加密存储：
+For scenarios requiring credential persistence, configure `encryption_key` and use encrypted storage:
 
 ```yaml
 version: "1"
-encryption_key: ${BROKER_MASTER_KEY}    # 主加密密钥（64 位十六进制）
+encryption_key: ${BROKER_MASTER_KEY}    # Master encryption key (64-char hex string)
 
 credentials:
   - id: github-main
@@ -241,155 +241,155 @@ credentials:
     encrypted: "base64-encrypted-string"
 ```
 
-### 权限策略
+### Permission Policies
 
 ```yaml
 policies:
   - agent: my-agent
     credential: github-main
 
-    # 方式一：允许所有操作
+    # Option 1: Allow all operations
     actions:
       - "*"
 
-    # 方式二：使用 Scope 组（自动展开）
+    # Option 2: Use scope groups (auto-expanded)
     # actions:
-    #   - "github:read"    # 展开为 7 个只读操作
-    #   - "github:write"   # 展开为 3 个写操作
+    #   - "github:read"    # Expands to 7 read-only operations
+    #   - "github:write"   # Expands to 3 write operations
 
-    # 方式三：精确指定操作
+    # Option 3: Specify operations explicitly
     # actions:
     #   - "github:list_repos"
     #   - "github:create_issue"
 
-    # 可选：参数约束（正则匹配）
+    # Optional: Parameter constraints (regex matching)
     # param_constraints:
     #   repo:
-    #     pattern: "^myorg/.*"    # repo 参数必须以 myorg/ 开头
+    #     pattern: "^myorg/.*"    # repo parameter must start with myorg/
 
-    # 可选：速率限制（滑动窗口算法）
+    # Optional: Rate limiting (sliding window algorithm)
     # rate_limit:
     #   max_calls: 100
     #   window_seconds: 3600
 
-    # 可选：策略过期时间
+    # Optional: Policy expiration
     # expires_at: "2025-12-31T23:59:59Z"
 ```
 
-### Scope 组
+### Scope Groups
 
-| Scope | 展开为 |
-|-------|--------|
+| Scope | Expands To |
+|-------|------------|
 | `github:read` | `list_repos`, `get_repo`, `list_issues`, `get_issue`, `list_prs`, `get_file`, `search_code` |
 | `github:write` | `create_issue`, `comment_issue`, `create_pr` |
 
-### 审计日志配置
+### Audit Log Configuration
 
 ```yaml
 audit:
   enabled: true
-  output: stdout     # stdout：输出到 stderr（适合 MCP stdio 模式）
+  output: stdout     # Outputs to stderr (appropriate for MCP stdio mode)
   # output: file
   # file: ./broker-audit.log
 ```
 
 ---
 
-## CLI 命令参考
+## CLI Reference
 
-所有命令支持 `-c, --config <path>` 指定配置文件路径，默认从当前目录向上查找 `broker.yaml`。
+All commands support `-c, --config <path>` to specify the configuration file. By default, the CLI searches upward from the current directory for `broker.yaml`.
 
 ```bash
-# 初始化
-broker init                                        # 生成 broker.yaml 模板
-broker init --force                                # 覆盖已有配置
+# Initialization
+broker init                                        # Generate broker.yaml template
+broker init --force                                # Overwrite existing configuration
 
-# 验证和诊断
-broker validate                                    # 校验配置文件格式
-broker diagnose                                    # 检查环境变量和凭证连接
+# Validation and diagnostics
+broker validate                                    # Validate configuration file format
+broker diagnose                                    # Check environment variables and credential connectivity
 
-# Agent 管理
-broker agent create <id> [-n <name>]               # 创建 Agent
-broker agent list                                  # 列出所有 Agent
-broker agent remove <id>                           # 移除 Agent
+# Agent management
+broker agent create <id> [-n <name>]               # Create an Agent
+broker agent list                                  # List all Agents
+broker agent remove <id>                           # Remove an Agent
 
-# Token 管理
-broker token generate <agent-id>                   # 生成 Agent Token（仅显示一次）
-broker token generate <agent-id> --force           # 覆盖已有 Token
-broker token revoke <agent-id>                     # 撤销 Token
-broker token list                                  # 列出所有 Token 状态
+# Token management
+broker token generate <agent-id>                   # Generate an Agent Token (displayed once)
+broker token generate <agent-id> --force           # Overwrite existing Token
+broker token revoke <agent-id>                     # Revoke a Token
+broker token list                                  # List Token status for all Agents
 
-# 凭证管理
-broker credential add <connector> --env <VAR>      # 添加环境变量引用凭证
-broker credential add <connector> --token <val>    # 直接指定 Token（不推荐）
-broker credential list                             # 列出所有凭证
-broker credential remove <id>                      # 移除凭证
+# Credential management
+broker credential add <connector> --env <VAR>      # Add a credential via environment variable reference
+broker credential add <connector> --token <val>    # Add a credential with inline token (not recommended)
+broker credential list                             # List all credentials
+broker credential remove <id>                      # Remove a credential
 
-# 策略管理
-broker policy set <agent> <credential> [--actions "*"]    # 设置策略
-broker policy list                                        # 列出所有策略
-broker policy remove <agent> <credential>                 # 移除策略
+# Policy management
+broker policy set <agent> <credential> [--actions "*"]    # Set a policy
+broker policy list                                        # List all policies
+broker policy remove <agent> <credential>                 # Remove a policy
 
-# 测试操作
-broker test <connector> <action>                   # 测试 Connector 操作
-broker test github list_repos                      # 示例：列出 GitHub 仓库
-broker test github list_issues -p '{"repo":"owner/repo"}'  # 带参数
-broker test github create_issue --dry-run          # 仅权限检查，不实际调用
+# Testing operations
+broker test <connector> <action>                   # Test a Connector operation
+broker test github list_repos                      # Example: list GitHub repositories
+broker test github list_issues -p '{"repo":"owner/repo"}'  # With parameters
+broker test github create_issue --dry-run          # Permission check only, no actual API call
 
-# 启动 MCP Server
-broker serve                                       # stdio 模式（支持配置热重载）
-broker serve --agent <id>                          # 指定 Agent ID
+# Start MCP Server
+broker serve                                       # stdio mode (with config hot-reload)
+broker serve --agent <id>                          # Specify Agent ID
 
-# Web UI（File Mode 可视化管理）
-broker ui                                          # 启动 Web UI（默认端口 3200）
-broker ui --port 8080                              # 自定义端口
+# Web UI (File Mode visual management)
+broker ui                                          # Start Web UI (default port 3200)
+broker ui --port 8080                              # Custom port
 ```
 
-### Token 认证流程
+### Token Authentication Flow
 
-1. 生成 Token：`broker token generate my-agent`（Token 仅显示一次）
-2. Token 的 SHA-256 哈希自动写入 `broker.yaml` 的 `token_hash` 字段
-3. 在 MCP 配置中通过环境变量 `BROKER_AGENT_TOKEN` 传入 Token 明文
-4. MCP Server 启动时通过哈希比对确认 Agent 身份
+1. Generate a Token: `broker token generate my-agent` (Token is displayed once only)
+2. The SHA-256 hash of the Token is automatically written to the `token_hash` field in `broker.yaml`
+3. Pass the Token plaintext via the `BROKER_AGENT_TOKEN` environment variable in your MCP configuration
+4. The MCP Server verifies Agent identity at startup via hash comparison
 
-未设置 `BROKER_AGENT_TOKEN` 时，退回到 `--agent` 参数或默认使用第一个 Agent。
+If `BROKER_AGENT_TOKEN` is not set, the Server falls back to the `--agent` parameter, or defaults to the first Agent in the configuration.
 
-### 配置热重载
+### Configuration Hot-Reload
 
-`broker serve` 运行时自动监视 `broker.yaml` 变更，修改配置无需重启 MCP Server：
+`broker serve` automatically watches `broker.yaml` for changes. Configuration updates take effect without restarting the MCP Server:
 
-- 使用 `fs.watch` 监视文件，300ms 防抖避免重复触发
-- 重载失败时保留旧配置并输出错误日志
-- 进程退出时自动清理 watcher
+- Uses `fs.watch` with 300ms debounce to prevent duplicate triggers
+- On reload failure, the previous configuration is retained and an error is logged
+- The file watcher is cleaned up automatically on process exit
 
 ### File Mode Web UI
 
-`broker ui` 启动轻量级 Web 界面（默认 `http://localhost:3200`），方便可视化管理 `broker.yaml`：
+`broker ui` starts a lightweight web interface (default: `http://localhost:3200`) for managing `broker.yaml` visually:
 
-- 使用 Node.js 内置 `http` 模块，零外部依赖
-- 支持 Agent、Credential、Policy 的增删操作
-- YAML 预览（Token 自动脱敏）
-- 所有变更实时写入 `broker.yaml` 文件
+- Built on Node.js built-in `http` module — no external dependencies
+- Supports create and delete operations for Agents, Credentials, and Policies
+- YAML preview with automatic token redaction
+- All changes are written to `broker.yaml` immediately
 
 ---
 
-## MCP Server 配置
+## MCP Server Configuration
 
-### Streamable HTTP 传输（可选）
+### Streamable HTTP Transport (optional)
 
-默认传输方式为 stdio。如需通过 HTTP 暴露 MCP Server（例如多 Agent 共享一个 MCP Server），可启用 HTTP 传输：
+The default transport is stdio. To expose the MCP Server over HTTP (e.g., for multiple Agents sharing a single MCP Server), enable HTTP transport:
 
 ```bash
 MCP_TRANSPORT=http MCP_PORT=3200 MCP_AUTH_TOKEN=your-secret broker serve
 ```
 
-客户端请求时携带 Bearer Token：
+Clients must include the Bearer Token in requests:
 
 ```
 Authorization: Bearer your-secret
 ```
 
-### 三种模式的 MCP 配置
+### MCP Configuration by Mode
 
 **File Mode**
 
@@ -408,7 +408,7 @@ Authorization: Bearer your-secret
 }
 ```
 
-**Local Mode（直连 PostgreSQL）**
+**Local Mode (direct PostgreSQL connection)**
 
 ```json
 {
@@ -426,7 +426,7 @@ Authorization: Bearer your-secret
 }
 ```
 
-**Remote Mode（HTTP 调用 Web Server）**
+**Remote Mode (HTTP call to Web Server)**
 
 ```json
 {
@@ -445,45 +445,45 @@ Authorization: Bearer your-secret
 
 ---
 
-## Docker 部署
+## Docker Deployment
 
-使用 docker-compose 一键启动 Web Server + PostgreSQL：
+Start the Web Server and PostgreSQL with a single command using docker-compose:
 
 ```bash
-# 复制并修改环境变量
+# Copy and configure environment variables
 cp apps/web/.env.example apps/web/.env
 
-# 构建并启动
+# Build and start
 docker-compose up -d
 
-# 查看日志
+# View logs
 docker-compose logs -f web
 ```
 
-`docker-compose.yml` 包含：
+`docker-compose.yml` includes:
 
-- `web` 服务：Next.js 14 Admin UI + Broker API，端口 3100
-- `postgres` 服务：PostgreSQL 14，数据持久化到 volume
+- `web` service: Next.js 14 Admin UI + Broker API, port 3100
+- `postgres` service: PostgreSQL 14, data persisted to a named volume
 
-多阶段 Docker 构建，最终镜像只包含生产所需文件。
+Multi-stage Docker build — the final image contains only production artifacts.
 
 ---
 
-## Web UI（Local / Remote Mode）
+## Web UI (Local / Remote Mode)
 
-### 环境要求
+### Requirements
 
 - Node.js >= 20
 - pnpm >= 9.15
 - PostgreSQL >= 14
 
-### 配置
+### Configuration
 
 ```bash
 cp apps/web/.env.example apps/web/.env
 ```
 
-`apps/web/.env` 必填项：
+Required fields in `apps/web/.env`:
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/agent_auth_broker"
@@ -494,283 +494,283 @@ GITHUB_CLIENT_ID="your-github-oauth-app-client-id"
 GITHUB_CLIENT_SECRET="your-github-oauth-app-client-secret"
 ```
 
-### 初始化数据库并启动
+### Initialize Database and Start
 
 ```bash
-pnpm db:generate    # 生成 Prisma Client
-pnpm db:push        # 推送 Schema（开发环境）
-# pnpm db:migrate   # 创建迁移文件（生产环境）
+pnpm db:generate    # Generate Prisma Client
+pnpm db:push        # Push schema (development)
+# pnpm db:migrate   # Create migration files (production)
 
 pnpm build
-pnpm dev:web        # 访问 http://localhost:3100
+pnpm dev:web        # Visit http://localhost:3100
 ```
 
-### 使用流程
+### Workflow
 
-1. **注册 Agent**：Admin UI -> Agents -> 创建 Agent -> 复制 Token（`agnt_xxxx`，仅显示一次）
-2. **连接凭证**：Admin UI -> Credentials -> 通过 OAuth 连接 -> 凭证自动加密存储
-3. **配置策略**：Admin UI -> Agent Policies -> 选择凭证、操作列表、参数约束
-4. **配置 MCP Server**：将 Token 填入 MCP 配置的 `BROKER_AGENT_TOKEN` 环境变量
+1. **Register an Agent**: Admin UI -> Agents -> Create Agent -> Copy Token (`agnt_xxxx`, displayed once)
+2. **Connect credentials**: Admin UI -> Credentials -> Connect via OAuth -> Credentials are encrypted automatically
+3. **Configure policies**: Admin UI -> Agent Policies -> Select credential, allowed operations, and parameter constraints
+4. **Configure MCP Server**: Set the Agent Token in the `BROKER_AGENT_TOKEN` environment variable in your MCP configuration
 
 ---
 
-## MCP 工具说明
+## MCP Tools
 
-MCP Server 启动后自动暴露以下工具：
+The MCP Server exposes the following tools upon startup:
 
-### 固定工具
+### Fixed Tools
 
-| 工具 | 说明 |
-|------|------|
-| `broker_call` | 通用调用入口，指定 connector + action + params |
-| `broker_list_tools` | 列出当前 Agent 被授权的所有工具 |
+| Tool | Description |
+|------|-------------|
+| `broker_call` | Universal invocation entry point: specify connector + action + params |
+| `broker_list_tools` | List all tools the current Agent is authorized to use |
 
-### 动态命名工具
+### Dynamic Named Tools
 
-根据 Agent 的权限策略自动生成，格式为 `{connector}_{action}`：
+Generated automatically based on the Agent's permission policies, in the format `{connector}_{action}`:
 
-| 工具 | 等价调用 |
-|------|---------|
+| Tool | Equivalent Call |
+|------|----------------|
 | `github_list_repos` | `broker_call({ connector: "github", action: "list_repos" })` |
 | `github_create_issue` | `broker_call({ connector: "github", action: "create_issue", ... })` |
 | `github_search_code` | `broker_call({ connector: "github", action: "search_code", ... })` |
 
-Agent 只能看到自身被授权的工具，未授权的工具不会出现在工具列表中。
+Agents only see tools they are authorized to use. Unauthorized tools are not included in the tool list.
 
 ---
 
-## GitHub Connector 操作列表
+## GitHub Connector Operations
 
-| action | 说明 | 必填参数 |
-|--------|------|---------|
-| `list_repos` | 列出已授权用户的仓库 | — |
-| `get_repo` | 获取仓库信息 | `repo`（格式：`owner/repo`）|
-| `list_issues` | 列出仓库的 Issue | `repo` |
-| `get_issue` | 获取单个 Issue 详情 | `repo`, `issue_number` |
-| `create_issue` | 创建 Issue | `repo`, `title` |
-| `comment_issue` | 在 Issue 上添加评论 | `repo`, `issue_number`, `body` |
-| `list_prs` | 列出 Pull Request | `repo` |
-| `create_pr` | 创建 Pull Request | `repo`, `title`, `head`, `base` |
-| `get_file` | 获取文件内容（自动 Base64 解码）| `repo`, `path` |
-| `search_code` | 搜索代码 | `q` |
+| action | Description | Required Parameters |
+|--------|-------------|---------------------|
+| `list_repos` | List repositories for the authenticated user | — |
+| `get_repo` | Get repository information | `repo` (format: `owner/repo`) |
+| `list_issues` | List issues in a repository | `repo` |
+| `get_issue` | Get details of a single issue | `repo`, `issue_number` |
+| `create_issue` | Create an issue | `repo`, `title` |
+| `comment_issue` | Add a comment to an issue | `repo`, `issue_number`, `body` |
+| `list_prs` | List pull requests | `repo` |
+| `create_pr` | Create a pull request | `repo`, `title`, `head`, `base` |
+| `get_file` | Get file contents (Base64-decoded automatically) | `repo`, `path` |
+| `search_code` | Search code | `q` |
 
 ---
 
-## 权限模型
+## Permission Model
 
-### 权限检查流程
+### Permission Check Flow
 
 ```
-请求到达
+Request received
   |
-  +--> Agent 是否激活？              -> DENIED_AGENT_INACTIVE
+  +--> Is the Agent active?                  -> DENIED_AGENT_INACTIVE
   |
-  +--> 是否有匹配的策略？             -> DENIED_NO_POLICY
+  +--> Is there a matching policy?           -> DENIED_NO_POLICY
   |
-  +--> 操作是否在允许列表？           -> DENIED_ACTION_NOT_ALLOWED
+  +--> Is the action in the allow list?      -> DENIED_ACTION_NOT_ALLOWED
   |
-  +--> 参数是否满足约束？             -> DENIED_PARAM_CONSTRAINT
+  +--> Do the parameters satisfy constraints? -> DENIED_PARAM_CONSTRAINT
   |
-  +--> 凭证是否过期？                -> DENIED_CREDENTIAL_EXPIRED
+  +--> Has the credential expired?           -> DENIED_CREDENTIAL_EXPIRED
   |
-  +--> 是否超出速率限制？             -> DENIED_RATE_LIMIT
+  +--> Has the rate limit been exceeded?     -> DENIED_RATE_LIMIT
   |
   v
-执行操作
+Execute operation
 ```
 
-### 拒绝原因码
+### Denial Reason Codes
 
-| 错误码 | 含义 |
-|--------|------|
-| `DENIED_AGENT_INACTIVE` | Agent 已被停用 |
-| `DENIED_NO_POLICY` | 该 Agent 无匹配策略 |
-| `DENIED_ACTION_NOT_ALLOWED` | 操作不在允许列表中 |
-| `DENIED_PARAM_CONSTRAINT` | 参数不满足约束条件 |
-| `DENIED_CREDENTIAL_EXPIRED` | 凭证已过期或被撤销 |
-| `DENIED_RATE_LIMIT` | 超出速率限制 |
+| Code | Meaning |
+|------|---------|
+| `DENIED_AGENT_INACTIVE` | The Agent has been deactivated |
+| `DENIED_NO_POLICY` | No policy matches this Agent and connector |
+| `DENIED_ACTION_NOT_ALLOWED` | The operation is not in the allow list |
+| `DENIED_PARAM_CONSTRAINT` | A parameter does not satisfy the configured constraint |
+| `DENIED_CREDENTIAL_EXPIRED` | The credential has expired or been revoked |
+| `DENIED_RATE_LIMIT` | The rate limit has been exceeded |
 
-### 参数约束示例
+### Parameter Constraint Example
 
 ```yaml
 param_constraints:
   repo:
-    pattern: "^myorg/.*"    # repo 参数必须以 myorg/ 开头
+    pattern: "^myorg/.*"    # repo parameter must start with myorg/
 ```
 
-正则模式在加载时经过 safe-regex2 验证，防止 ReDoS 攻击。
+All regex patterns are validated with safe-regex2 on load to prevent ReDoS attacks.
 
 ---
 
-## 加密方案
+## Encryption
 
-凭证数据采用 AES-256-GCM **双层加密**：
+Credentials are protected with **two-layer AES-256-GCM encryption**:
 
 ```
-BROKER_MASTER_KEY（环境变量，不落盘）
+BROKER_MASTER_KEY (environment variable, never written to disk)
   |
-  +--> 加密生成 DEK（Data Encryption Key，每条凭证独立）
+  +--> Encrypts DEK (Data Encryption Key, unique per credential)
          |
-         +--> 加密凭证 JSON（含 access_token 等敏感字段）
+         +--> Encrypts credential JSON (access_token and other sensitive fields)
                 |
-                +--> 加密结果存入数据库
+                +--> Ciphertext stored in database
 ```
 
-- MEK（Master Encryption Key）仅存在于环境变量，不落盘
-- DEK 加密后存入数据库的 `encryptionKeyId` 字段
-- 凭证明文从不进入日志或 HTTP 响应体
-- File Mode 的 AES 加密存储同样使用 `BROKER_MASTER_KEY`
+- The MEK (Master Encryption Key) exists only as an environment variable and is never persisted
+- The DEK is stored in the database (encrypted) in the `encryptionKeyId` field
+- Credential plaintext never appears in logs or HTTP response bodies
+- File Mode encrypted storage uses the same `BROKER_MASTER_KEY`
 
 ---
 
-## 审计日志
+## Audit Logging
 
-所有操作（包括被拒绝的请求）均记录审计日志。
+All operations — including denied requests — are recorded in the audit log.
 
-**日志字段：**
+**Log fields:**
 
-- Agent ID、Connector、Action
-- 权限检查结果（`permissionResult`）
-- 脱敏后的请求摘要（敏感字段替换为 `[REDACTED]`）
-- HTTP 状态码、错误信息
-- IP 地址、User-Agent
-- 时间戳、哈希链值
+- Agent ID, Connector, Action
+- Permission check result (`permissionResult`)
+- Redacted request summary (sensitive fields replaced with `[REDACTED]`)
+- HTTP status code and error message
+- IP address and User-Agent
+- Timestamp and hash chain value
 
-**防篡改机制：**
+**Tamper-evidence:**
 
-审计日志采用 HMAC-SHA256 哈希链，每条记录包含前一条记录的哈希值，形成不可篡改的链式结构。应用层只允许 INSERT，不允许 UPDATE 或 DELETE 审计记录。
+Audit logs use an HMAC-SHA256 hash chain. Each record includes the hash of the previous record, forming a chain that cannot be altered without detection. The application layer enforces INSERT-only access — UPDATE and DELETE operations on audit records are not permitted.
 
-**输出配置：**
+**Output configuration:**
 
 ```yaml
 audit:
   enabled: true
-  output: stdout     # MCP stdio 模式下输出到 stderr
+  output: stdout     # Outputs to stderr in MCP stdio mode
   # output: file
   # file: ./broker-audit.log
 ```
 
 ---
 
-## 扩展 Connector
+## Extending Connectors
 
-### 内置方式
+### Built-in Integration
 
-在 `packages/connectors/src/` 下新建目录，实现 `ConnectorAdapter` 接口，并在 `registry.ts` 中注册：
+Create a new directory under `packages/connectors/src/`, implement the `ConnectorAdapter` interface, and register it in `registry.ts`:
 
 ```typescript
-// packages/connectors/src/feishu/index.ts
-export const feishuConnector: ConnectorAdapter = {
-  info: { id: 'feishu', name: '飞书', version: '1.0.0' },
+// packages/connectors/src/slack/index.ts
+export const slackConnector: ConnectorAdapter = {
+  info: { id: 'slack', name: 'Slack', version: '1.0.0' },
   getActions() {
     return [
-      { id: 'send_message', name: '发送消息', params: [...] },
+      { id: 'post_message', name: 'Post Message', params: [...] },
     ]
   },
   async execute(action, params, credential) {
-    // 实现调用逻辑
+    // Implementation
   },
   async validateCredential(credential) {
-    // 可选：验证凭证有效性
+    // Optional: validate credential on load
   },
 }
 
 // packages/connectors/src/registry.ts
-import { feishuConnector } from './feishu/index'
+import { slackConnector } from './slack/index'
 
 const connectors = new Map([
   ['github', githubConnector],
-  ['feishu', feishuConnector],    // 注册新 Connector
+  ['slack', slackConnector],    // Register new Connector
 ])
 ```
 
-### 插件化动态加载
+### Plugin-based Dynamic Loading
 
-支持从 npm 包或本地路径动态加载 Connector，无需修改核心代码：
+Connectors can be loaded from npm packages or local paths at runtime, without modifying core code:
 
 ```typescript
 import { loadConnectorPlugin } from '@agent-auth-broker/connectors'
 
-// 从 npm 包加载
-await loadConnectorPlugin('my-broker-connector-feishu')
+// Load from npm package
+await loadConnectorPlugin('my-broker-connector-slack')
 
-// 从本地路径加载
+// Load from local path
 await loadConnectorPlugin('./plugins/my-connector')
 ```
 
-插件需导出符合 `ConnectorAdapter` 接口的对象作为默认导出。
+Plugins must export a `ConnectorAdapter`-conforming object as their default export.
 
 ---
 
-## 环境变量参考
+## Environment Variables
 
-| 变量 | 用途 | 适用模式 |
-|------|------|---------|
-| `BROKER_CONFIG` | broker.yaml 文件路径 | File Mode |
-| `DATABASE_URL` | PostgreSQL 连接串 | Local / Remote |
-| `BROKER_MASTER_KEY` | 主加密密钥（64 位十六进制字符串） | Local / Remote / File（加密存储） |
-| `BROKER_AGENT_TOKEN` | Agent 认证 Token | 所有模式 |
-| `BROKER_AGENT_ID` | 指定 Agent ID（无 Token 时使用） | File Mode |
+| Variable | Purpose | Mode |
+|----------|---------|------|
+| `BROKER_CONFIG` | Path to broker.yaml | File Mode |
+| `DATABASE_URL` | PostgreSQL connection string | Local / Remote |
+| `BROKER_MASTER_KEY` | Master encryption key (64-char hex string) | Local / Remote / File (encrypted storage) |
+| `BROKER_AGENT_TOKEN` | Agent authentication token | All modes |
+| `BROKER_AGENT_ID` | Specify Agent ID (used when no token is set) | File Mode |
 | `BROKER_URL` | Web Server URL | Remote Mode |
-| `MCP_TRANSPORT` | 传输方式：`stdio`（默认）或 `http` | MCP Server |
-| `MCP_PORT` | HTTP 传输端口（默认 3200） | MCP Server HTTP 模式 |
-| `MCP_AUTH_TOKEN` | HTTP Bearer Token | MCP Server HTTP 模式 |
-| `BROKER_LOG_LEVEL` | 日志级别（默认 `info`） | 所有模式 |
+| `MCP_TRANSPORT` | Transport type: `stdio` (default) or `http` | MCP Server |
+| `MCP_PORT` | HTTP transport port (default: 3200) | MCP Server HTTP mode |
+| `MCP_AUTH_TOKEN` | HTTP Bearer Token | MCP Server HTTP mode |
+| `BROKER_LOG_LEVEL` | Log level (default: `info`) | All modes |
 | `GITHUB_TOKEN` | GitHub Personal Access Token | File Mode |
-| `NEXTAUTH_SECRET` | NextAuth.js 密钥 | Web |
-| `NEXTAUTH_URL` | Web 应用 URL | Web |
+| `NEXTAUTH_SECRET` | NextAuth.js secret | Web |
+| `NEXTAUTH_URL` | Web application URL | Web |
 | `GITHUB_CLIENT_ID` | GitHub OAuth App Client ID | Web |
 | `GITHUB_CLIENT_SECRET` | GitHub OAuth App Client Secret | Web |
 
 ---
 
-## 开发命令
+## Development Commands
 
 ```bash
-# 安装依赖
+# Install dependencies
 pnpm install
 
-# 构建所有包
+# Build all packages
 pnpm build
 
-# 单独构建
+# Build individual packages
 pnpm build:web
 pnpm build:mcp
 pnpm --filter=agent-auth-broker build
 
-# 开发模式（热重载）
+# Development mode (with hot reload)
 pnpm dev
 pnpm dev:web
 
-# 数据库操作（Local / Remote Mode）
-pnpm db:generate    # 生成 Prisma Client
-pnpm db:push        # 推送 Schema（开发环境）
-pnpm db:migrate     # 创建迁移文件（生产环境）
+# Database operations (Local / Remote Mode)
+pnpm db:generate    # Generate Prisma Client
+pnpm db:push        # Push schema (development)
+pnpm db:migrate     # Create migration files (production)
 
-# 代码检查
+# Linting
 pnpm lint
 
-# 运行测试
+# Run tests
 pnpm test
 ```
 
 ---
 
-## 测试
+## Testing
 
-使用 Vitest 测试框架，包含 70+ 个测试用例，覆盖以下模块：
+The project uses Vitest with 70+ test cases covering the following modules:
 
-- 加密与解密（AES-256-GCM，包含边界情况）
-- Scope 展开逻辑（scope 组解析与去重）
-- 配置文件加载（环境变量替换、格式校验）
-- 权限检查（所有拒绝场景）
-- 速率限制（滑动窗口算法）
-- 审计日志哈希链（防篡改验证）
+- Encryption and decryption (AES-256-GCM, including edge cases)
+- Scope expansion logic (scope group parsing and deduplication)
+- Configuration loading (environment variable substitution, format validation)
+- Permission checking (all denial scenarios)
+- Rate limiting (sliding window algorithm)
+- Audit log hash chain (tamper-evidence verification)
 
 ```bash
-pnpm test              # 运行所有测试
-pnpm test --watch      # 监视模式
-pnpm test --coverage   # 生成覆盖率报告
+pnpm test              # Run all tests
+pnpm test --watch      # Watch mode
+pnpm test --coverage   # Generate coverage report
 ```
 
 ---
