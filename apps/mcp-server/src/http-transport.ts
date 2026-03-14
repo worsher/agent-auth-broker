@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js'
+import { logger } from './logger.js'
 
 const AUTH_TOKEN = process.env.MCP_AUTH_TOKEN
 
@@ -107,14 +108,14 @@ export async function startHttpTransport(
           sessionIdGenerator: () => randomUUID(),
           onsessioninitialized: (id) => {
             sessions.set(id, { transport, server })
-            console.error(`[broker-mcp] HTTP session initialized: ${id}`)
+            logger.info({ sessionId: id }, 'HTTP session initialized')
           },
         })
 
         transport.onclose = () => {
           if (transport.sessionId) {
             sessions.delete(transport.sessionId)
-            console.error(`[broker-mcp] HTTP session closed: ${transport.sessionId}`)
+            logger.info({ sessionId: transport.sessionId }, 'HTTP session closed')
           }
         }
 
@@ -134,9 +135,6 @@ export async function startHttpTransport(
   })
 
   httpServer.listen(port, () => {
-    console.error(`[broker-mcp] MCP Server started (HTTP mode, port ${port})`)
-    if (AUTH_TOKEN) {
-      console.error('[broker-mcp] Bearer Token authentication enabled')
-    }
+    logger.info({ port, auth: !!AUTH_TOKEN }, 'MCP Server started (HTTP mode)')
   })
 }

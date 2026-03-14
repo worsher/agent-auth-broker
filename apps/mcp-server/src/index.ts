@@ -22,6 +22,7 @@ import {
   ListToolsRequestSchema,
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
+import { logger } from './logger.js'
 
 // 模式检测优先级：BROKER_URL > DATABASE_URL > BROKER_CONFIG
 const mode = process.env.BROKER_URL
@@ -33,10 +34,7 @@ const mode = process.env.BROKER_URL
       : null
 
 if (!mode) {
-  console.error('[broker-mcp] 错误：请设置以下环境变量之一：')
-  console.error('  BROKER_URL     — Remote Mode（HTTP 调用 Web Server）')
-  console.error('  DATABASE_URL   — Local Mode（直连数据库）')
-  console.error('  BROKER_CONFIG  — File Mode（纯本地，基于 broker.yaml）')
+  logger.fatal('请设置以下环境变量之一：BROKER_URL（Remote）、DATABASE_URL（Local）、BROKER_CONFIG（File）')
   process.exit(1)
 }
 
@@ -46,7 +44,7 @@ const { listTools, callTool } = mode === 'REMOTE'
     ? await import('./local-broker.js')
     : await import('./file-broker.js')
 
-console.error(`[broker-mcp] Running in ${mode} mode`)
+logger.info({ mode }, 'MCP Server 运行模式')
 
 /**
  * 创建一个配置好 request handler 的 MCP Server 实例
@@ -191,11 +189,11 @@ async function main() {
     const server = createMcpServer()
     const stdioTransport = new StdioServerTransport()
     await server.connect(stdioTransport)
-    console.error('[broker-mcp] MCP Server started (stdio mode)')
+    logger.info('MCP Server started (stdio mode)')
   }
 }
 
 main().catch((err) => {
-  console.error('[broker-mcp] Fatal error:', err)
+  logger.fatal({ err }, 'Fatal error')
   process.exit(1)
 })

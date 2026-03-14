@@ -8,6 +8,7 @@
 import { loadConfig, LocalStore, LocalBroker } from '@broker/local-runtime'
 import type { ToolEntry } from '@broker/local-runtime'
 import type { BrokerCallResult } from '@broker/shared-types'
+import { logger } from './logger.js'
 
 let broker: LocalBroker | undefined
 let agentId: string | undefined
@@ -28,7 +29,7 @@ function getBroker(): { broker: LocalBroker; agentId: string } {
     const store = new LocalStore(config)
     broker = new LocalBroker(store)
 
-    console.error(`[broker-mcp] File mode: config=${configPath}, agent=${agentId}`)
+    logger.info({ config: configPath, agent: agentId }, 'File mode initialized')
   }
 
   return { broker, agentId }

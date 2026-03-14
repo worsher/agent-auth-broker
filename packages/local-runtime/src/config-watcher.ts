@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import { loadConfig } from './config-loader.js'
 import type { LocalStore } from './local-store.js'
+import { logger } from './logger.js'
 
 /**
  * 监视 broker.yaml 文件变更，自动重载配置
@@ -29,7 +30,7 @@ export class ConfigWatcher {
     })
 
     this.watcher.on('error', (err) => {
-      console.error(`[config-watcher] 监视文件出错: ${err.message}`)
+      logger.error({ err }, '监视配置文件出错')
     })
   }
 
@@ -48,9 +49,9 @@ export class ConfigWatcher {
     try {
       const config = loadConfig(this.configPath)
       this.store.reload(config)
-      console.error(`[config-watcher] 配置已重载: ${this.configPath}`)
+      logger.info({ path: this.configPath }, '配置已重载')
     } catch (err) {
-      console.error(`[config-watcher] 重载失败（保留旧配置）: ${err instanceof Error ? err.message : String(err)}`)
+      logger.warn({ err: err instanceof Error ? err.message : String(err), path: this.configPath }, '重载失败，保留旧配置')
     }
   }
 }

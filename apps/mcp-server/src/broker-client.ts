@@ -3,11 +3,13 @@
  * MCP Server 通过此客户端与 Broker Core (Next.js) 通信
  */
 
+import { logger } from './logger.js'
+
 const BROKER_URL = process.env.BROKER_URL ?? 'http://localhost:3100'
 const AGENT_TOKEN = process.env.BROKER_AGENT_TOKEN
 
 if (!AGENT_TOKEN) {
-  console.error('[broker-mcp] BROKER_AGENT_TOKEN is not set')
+  logger.fatal('BROKER_AGENT_TOKEN is not set')
   process.exit(1)
 }
 

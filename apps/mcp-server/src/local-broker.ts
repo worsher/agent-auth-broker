@@ -6,13 +6,14 @@
 
 import { verifyAgentToken, listTools as coreListTools, callTool as coreCallTool } from '@broker/core'
 import type { ToolEntry } from '@broker/core'
+import { logger } from './logger.js'
 
 export type { ToolEntry }
 
 const AGENT_TOKEN = process.env.BROKER_AGENT_TOKEN
 
 if (!AGENT_TOKEN) {
-  console.error('[broker-mcp] BROKER_AGENT_TOKEN is not set')
+  logger.fatal('BROKER_AGENT_TOKEN is not set')
   process.exit(1)
 }
 
@@ -24,7 +25,7 @@ async function getAgentId(): Promise<string> {
 
   const agentId = await verifyAgentToken(AGENT_TOKEN!)
   if (!agentId) {
-    console.error('[broker-mcp] Invalid BROKER_AGENT_TOKEN')
+    logger.fatal('Invalid BROKER_AGENT_TOKEN')
     process.exit(1)
   }
 
