@@ -8,6 +8,8 @@ export interface ConnectorAdapter {
     params: Record<string, unknown>,
     credential: DecryptedCredential
   ): Promise<ConnectorResult>
+  /** 验证凭证是否有效（可选） */
+  validateCredential?(credential: DecryptedCredential): Promise<{ valid: boolean; error?: string }>
 }
 
 export type { ConnectorAction, ConnectorInfo, ConnectorResult, DecryptedCredential }
