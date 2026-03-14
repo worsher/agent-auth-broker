@@ -15,9 +15,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@broker/shared-types": "workspace:*",
     "@broker/connectors": "workspace:*",
     "@broker/crypto": "workspace:*",
+    "@broker/shared-types": "workspace:*",
+    "safe-regex2": "^5.1.0",
     "yaml": "^2.7.0",
     "zod": "^3.23.8"
   },

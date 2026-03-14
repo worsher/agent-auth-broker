@@ -17,7 +17,8 @@
     "@broker/crypto": "workspace:*",
     "@broker/shared-types": "workspace:*",
     "@prisma/client": "^5.22.0",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "safe-regex2": "^5.1.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

@@ -1,5 +1,6 @@
 import type { PrismaClient } from '@prisma/client'
 import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared-types'
+import safe from 'safe-regex2'
 import { getPrisma } from './db.js'
 
 /**
@@ -67,6 +68,12 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
     for (const [key, constraint] of Object.entries(constraints)) {
       const paramValue = input.params[key]
       if (constraint.pattern && typeof paramValue === 'string') {
+        if (!safe(constraint.pattern)) {
+          return {
+            result: 'DENIED_PARAM_CONSTRAINT',
+            message: `Parameter constraint "${key}" has an unsafe regex pattern (potential ReDoS): "${constraint.pattern}"`,
+          }
+        }
         const regex = new RegExp(constraint.pattern)
         if (!regex.test(paramValue)) {
           return {

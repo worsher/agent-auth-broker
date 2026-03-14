@@ -202,6 +202,59 @@ policies:
       cleanupTempConfig(file)
     }
   })
+
+  it('should throw on unsafe regex pattern in param_constraints (ReDoS)', () => {
+    const yaml = `
+version: "1"
+agents:
+  - id: a
+    name: A
+credentials:
+  - id: c
+    connector: github
+    token: tok
+policies:
+  - agent: a
+    credential: c
+    actions: ["*"]
+    param_constraints:
+      repo:
+        pattern: "(a+)+$"
+`
+    const file = createTempConfig(yaml)
+    try {
+      expect(() => loadConfig(file)).toThrow('ReDoS')
+    } finally {
+      cleanupTempConfig(file)
+    }
+  })
+
+  it('should accept safe regex patterns', () => {
+    const yaml = `
+version: "1"
+agents:
+  - id: a
+    name: A
+credentials:
+  - id: c
+    connector: github
+    token: tok
+policies:
+  - agent: a
+    credential: c
+    actions: ["*"]
+    param_constraints:
+      repo:
+        pattern: "^myorg/.*"
+`
+    const file = createTempConfig(yaml)
+    try {
+      const config = loadConfig(file)
+      expect(config.policies[0].param_constraints?.repo?.pattern).toBe('^myorg/.*')
+    } finally {
+      cleanupTempConfig(file)
+    }
+  })
 })
 
 describe('validateConfigFile', () => {

@@ -186,4 +186,22 @@ describe('checkLocalPermission', () => {
     expect(result.result).toBe('DENIED_ACTION_NOT_ALLOWED')
     expect(result.message).toContain('速率限制')
   })
+
+  it('should DENY unsafe regex pattern (ReDoS protection)', () => {
+    const store = createStore({
+      policies: [{
+        agent: 'agent1',
+        credential: 'cred1',
+        actions: ['*'],
+        param_constraints: { repo: { pattern: '(a+)+$' } }, // classic ReDoS pattern
+      }],
+    })
+
+    const result = checkLocalPermission(
+      { agentId: 'agent1', connectorId: 'github', action: 'list_issues', params: { repo: 'test' } },
+      store
+    )
+    expect(result.result).toBe('DENIED_PARAM_CONSTRAINT')
+    expect(result.message).toContain('ReDoS')
+  })
 })

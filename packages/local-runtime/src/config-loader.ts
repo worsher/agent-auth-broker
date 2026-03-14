@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { parse as parseYaml } from 'yaml'
 import { z } from 'zod'
+import safe from 'safe-regex2'
 
 const RateLimitSchema = z.object({
   max_calls: z.number().int().positive(),
@@ -124,6 +125,15 @@ export function loadConfig(configPath: string): BrokerConfig {
     }
     if (!credentialIds.has(policy.credential)) {
       throw new Error(`策略引用了不存在的 credential: "${policy.credential}"`)
+    }
+
+    // 验证参数约束中的正则模式安全性（防止 ReDoS）
+    if (policy.param_constraints) {
+      for (const [key, constraint] of Object.entries(policy.param_constraints)) {
+        if (constraint.pattern && !safe(constraint.pattern)) {
+          throw new Error(`策略参数约束 "${key}" 的正则模式不安全（可能导致 ReDoS）: "${constraint.pattern}"`)
+        }
+      }
     }
   }
 

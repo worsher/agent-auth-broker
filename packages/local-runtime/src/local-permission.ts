@@ -1,5 +1,6 @@
 import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared-types'
 import { expandScopes } from '@broker/connectors'
+import safe from 'safe-regex2'
 import type { LocalStore } from './local-store.js'
 import { RateLimiter } from './rate-limiter.js'
 
@@ -51,6 +52,12 @@ export function checkLocalPermission(
     for (const [key, constraint] of Object.entries(policy.param_constraints)) {
       const paramValue = input.params[key]
       if (constraint.pattern && typeof paramValue === 'string') {
+        if (!safe(constraint.pattern)) {
+          return {
+            result: 'DENIED_PARAM_CONSTRAINT',
+            message: `参数约束 "${key}" 的正则模式不安全（可能导致 ReDoS）: "${constraint.pattern}"`,
+          }
+        }
         const regex = new RegExp(constraint.pattern)
         if (!regex.test(paramValue)) {
           return {
