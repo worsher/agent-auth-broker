@@ -25,4 +25,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma clients
+        run: |
+          pnpm --filter @broker/core db:generate
+          pnpm --filter @broker/web db:generate
+
       - run: pnpm build
