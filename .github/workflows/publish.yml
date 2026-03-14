@@ -28,13 +28,18 @@ jobs:
           pnpm --filter @broker/core db:generate
           pnpm --filter @broker/web db:generate
 
-      - run: pnpm build
-
       - name: Set version from release tag
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not extract version from tag '${GITHUB_REF_NAME}'"
+            exit 1
+          fi
+          echo "Publishing version: ${VERSION}"
           cd apps/cli
           npm version "$VERSION" --no-git-tag-version
+
+      - run: pnpm build
 
       - name: Publish CLI package
         run: pnpm --filter agent-auth-broker publish --no-git-checks --access public
