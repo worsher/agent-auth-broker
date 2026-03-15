@@ -19,6 +19,10 @@ const AgentSchema = z.object({
   name: z.string().min(1),
   token_hash: z.string().optional(),
   token_prefix: z.string().optional(),
+  // Token TTL：ISO 8601 格式的过期时间
+  token_expires_at: z.string().datetime().optional(),
+  // IP 白名单：CIDR 或精确 IP，空数组或不设置 = 不限制
+  allowed_ips: z.array(z.string()).default([]),
 })
 
 const CredentialSchema = z.object({

@@ -3,6 +3,7 @@ import { expandScopes } from '@broker/connectors'
 import safe from 'safe-regex2'
 import type { LocalStore } from './local-store.js'
 import { RateLimiter } from './rate-limiter.js'
+import { isIpAllowed } from './ip-match.js'
 
 // 全局速率限制器实例（跨调用保持状态）
 const globalRateLimiter = new RateLimiter()
@@ -22,6 +23,18 @@ export function checkLocalPermission(
   const agent = store.getAgent(agentId)
   if (!agent) {
     return { result: 'DENIED_AGENT_INACTIVE', message: 'Agent 不存在' }
+  }
+
+  // 1.5 Token TTL 检查
+  if (agent.token_expires_at && new Date(agent.token_expires_at) < new Date()) {
+    return { result: 'DENIED_TOKEN_EXPIRED', message: `Agent token 已过期（${agent.token_expires_at}）` }
+  }
+
+  // 1.6 IP 白名单检查
+  if (agent.allowed_ips.length > 0 && input.clientIp) {
+    if (!isIpAllowed(input.clientIp, agent.allowed_ips)) {
+      return { result: 'DENIED_IP_NOT_ALLOWED', message: `客户端 IP "${input.clientIp}" 不在白名单中` }
+    }
   }
 
   // 2. 查找匹配的策略（findPolicy 已含过期检查）

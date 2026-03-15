@@ -16,10 +16,15 @@ export async function verifyAgentToken(token: string): Promise<string | null> {
 
   const agent = await prisma.agent.findUnique({
     where: { tokenPrefix: prefix },
-    select: { id: true, tokenHash: true, isActive: true },
+    select: { id: true, tokenHash: true, isActive: true, tokenExpiresAt: true },
   })
 
   if (!agent || !agent.isActive) return null
+
+  // Token TTL 检查
+  if (agent.tokenExpiresAt && agent.tokenExpiresAt < new Date()) {
+    return null
+  }
 
   const valid = await bcrypt.compare(token, agent.tokenHash)
   if (!valid) return null

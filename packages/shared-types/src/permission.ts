@@ -5,6 +5,8 @@ export type PermissionResult =
   | 'DENIED_PARAM_CONSTRAINT'
   | 'DENIED_CREDENTIAL_EXPIRED'
   | 'DENIED_AGENT_INACTIVE'
+  | 'DENIED_TOKEN_EXPIRED'
+  | 'DENIED_IP_NOT_ALLOWED'
 
 export interface PermissionCheckResult {
   result: PermissionResult
@@ -17,4 +19,5 @@ export interface PermissionCheckInput {
   connectorId: string
   action: string
   params?: Record<string, unknown>
+  clientIp?: string
 }

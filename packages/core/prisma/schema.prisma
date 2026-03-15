@@ -44,6 +44,11 @@ model Agent {
   // 前 12 个字符（"agnt_" + 7 chars），用于快速查询，非敏感
   tokenPrefix String    @unique
 
+  // Token TTL：过期后需重新生成
+  tokenExpiresAt DateTime?
+  // IP 白名单：CIDR 或精确 IP，空数组 = 不限制
+  allowedIps     String[]
+
   isActive    Boolean   @default(true)
   lastUsedAt  DateTime?
   createdAt   DateTime  @default(now())

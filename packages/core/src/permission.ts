@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client'
 import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared-types'
 import safe from 'safe-regex2'
 import { getPrisma } from './db.js'
+import { isIpAllowed } from './ip-match.js'
 
 /**
  * 数据库模式的权限检查
@@ -16,11 +17,23 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
   // 1. 检查 Agent 状态
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { isActive: true },
+    select: { isActive: true, tokenExpiresAt: true, allowedIps: true },
   })
 
   if (!agent || !agent.isActive) {
     return { result: 'DENIED_AGENT_INACTIVE', message: 'Agent is inactive or not found' }
+  }
+
+  // 1.5 Token TTL 检查
+  if (agent.tokenExpiresAt && agent.tokenExpiresAt < new Date()) {
+    return { result: 'DENIED_TOKEN_EXPIRED', message: 'Agent token has expired' }
+  }
+
+  // 1.6 IP 白名单检查
+  if (agent.allowedIps.length > 0 && input.clientIp) {
+    if (!isIpAllowed(input.clientIp, agent.allowedIps)) {
+      return { result: 'DENIED_IP_NOT_ALLOWED', message: `Client IP "${input.clientIp}" is not in the allowed list` }
+    }
   }
 
   // 2. 查找匹配的 AgentPolicy
