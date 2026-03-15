@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const body = await request.json() as Record<string, unknown>
 
   const credential = await prisma.credential.findUnique({
-    where: { id },
+    where: { id, ownerId: auth.userId },
     select: { id: true, status: true },
   })
   if (!credential) {

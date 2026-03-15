@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const sortBy = params.get('sortBy') ?? 'createdAt'
   const sortOrder = (params.get('sortOrder') ?? 'desc') as 'asc' | 'desc'
 
-  const where: Prisma.AgentWhereInput = {}
+  const where: Prisma.AgentWhereInput = { ownerId: auth.userId }
   if (search) {
     where.OR = [
       { name: { contains: search, mode: 'insensitive' } },

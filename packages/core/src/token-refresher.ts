@@ -76,7 +76,8 @@ export async function attemptTokenRefresh(
   connectorId: string,
   currentEncryptedData: string,
   currentEncryptionKeyId: string,
-  prisma: PrismaClient
+  prisma: PrismaClient,
+  ownerId?: string
 ): Promise<DecryptedCredential> {
   const log = getCoreLogger()
 
@@ -157,7 +158,7 @@ export async function attemptTokenRefresh(
     })
 
     incrementCounter(METRIC.TOKEN_REFRESH_SUCCESS)
-    emitWebhookEvent('credential.refreshed', { credentialId, connectorId, expiresIn: tokenResponse.expires_in })
+    emitWebhookEvent('credential.refreshed', { credentialId, connectorId, expiresIn: tokenResponse.expires_in, ownerId })
     log.info({ credentialId, connectorId, expiresIn: tokenResponse.expires_in, tokenRotated: !!tokenResponse.refresh_token }, 'OAuth2 token refresh succeeded')
     return updatedData as unknown as DecryptedCredential
   })().catch((err) => {

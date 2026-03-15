@@ -11,6 +11,7 @@ export type PermissionResult =
 export interface PermissionCheckResult {
   result: PermissionResult
   credentialId?: string
+  ownerId?: string
   message?: string
 }
 

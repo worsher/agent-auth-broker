@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const connectorId = params.get('connectorId')
   const search = params.get('search')?.trim()
 
-  const where: Prisma.CredentialWhereInput = {}
+  const where: Prisma.CredentialWhereInput = { ownerId: auth.userId }
   if (status) where.status = status as any
   if (connectorId) where.connectorId = connectorId
   if (search) {

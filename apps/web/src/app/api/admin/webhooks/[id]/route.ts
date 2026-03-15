@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params
 
   const endpoint = await prisma.webhookEndpoint.findUnique({
-    where: { id },
+    where: { id, ownerId: auth.userId },
     include: {
       deliveries: {
         orderBy: { createdAt: 'desc' },
@@ -46,7 +46,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   const body = await request.json() as Record<string, unknown>
 
-  const existing = await prisma.webhookEndpoint.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.webhookEndpoint.findUnique({ where: { id, ownerId: auth.userId }, select: { id: true } })
   if (!existing) {
     return NextResponse.json({ error: 'Webhook 不存在' }, { status: 404 })
   }
@@ -84,7 +84,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params
 
-  const existing = await prisma.webhookEndpoint.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.webhookEndpoint.findUnique({ where: { id, ownerId: auth.userId }, select: { id: true } })
   if (!existing) {
     return NextResponse.json({ error: 'Webhook 不存在' }, { status: 404 })
   }

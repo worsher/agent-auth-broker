@@ -21,12 +21,12 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
   // 1. 检查 Agent 状态
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { isActive: true, tokenExpiresAt: true, allowedIps: true },
+    select: { isActive: true, tokenExpiresAt: true, allowedIps: true, ownerId: true },
   })
 
   if (!agent || !agent.isActive) {
     incrementCounter(METRIC.PERMISSION_DENIED)
-    emitWebhookEvent('permission.denied', { agentId, action: fullAction, reason: 'DENIED_AGENT_INACTIVE' })
+    emitWebhookEvent('permission.denied', { agentId, action: fullAction, reason: 'DENIED_AGENT_INACTIVE', ownerId: agent?.ownerId })
     log.info({ agentId, action: fullAction }, 'permission denied: agent inactive')
     return { result: 'DENIED_AGENT_INACTIVE', message: 'Agent is inactive or not found' }
   }
@@ -42,7 +42,7 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
   if (agent.allowedIps.length > 0 && input.clientIp) {
     if (!isIpAllowed(input.clientIp, agent.allowedIps)) {
       incrementCounter(METRIC.PERMISSION_DENIED)
-      emitWebhookEvent('permission.denied', { agentId, action: fullAction, reason: 'DENIED_IP_NOT_ALLOWED', clientIp: input.clientIp })
+      emitWebhookEvent('permission.denied', { agentId, action: fullAction, reason: 'DENIED_IP_NOT_ALLOWED', clientIp: input.clientIp, ownerId: agent.ownerId })
       log.warn({ agentId, clientIp: input.clientIp, action: fullAction }, 'permission denied: IP not allowed')
       return { result: 'DENIED_IP_NOT_ALLOWED', message: `Client IP "${input.clientIp}" is not in the allowed list` }
     }
@@ -117,5 +117,5 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
 
   incrementCounter(METRIC.PERMISSION_ALLOWED)
   log.debug({ agentId, connectorId, action: fullAction, credentialId: policy.credentialId }, 'permission allowed')
-  return { result: 'ALLOWED', credentialId: policy.credentialId }
+  return { result: 'ALLOWED', credentialId: policy.credentialId, ownerId: agent.ownerId }
 }

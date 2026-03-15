@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
 
   const [endpoints, total] = await Promise.all([
     prisma.webhookEndpoint.findMany({
+      where: { ownerId: auth.userId },
       orderBy: { createdAt: 'desc' },
       skip,
       take: pageSize,
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
         _count: { select: { deliveries: true } },
       },
     }),
-    prisma.webhookEndpoint.count(),
+    prisma.webhookEndpoint.count({ where: { ownerId: auth.userId } }),
   ])
 
   return paginatedResponse(endpoints, total, page, pageSize)

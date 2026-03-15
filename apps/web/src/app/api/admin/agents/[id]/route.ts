@@ -13,7 +13,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params
 
   const agent = await prisma.agent.findUnique({
-    where: { id },
+    where: { id, ownerId: auth.userId },
     include: {
       owner: { select: { id: true, email: true, name: true } },
       policies: {
@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   const body = await request.json() as Record<string, unknown>
 
-  const agent = await prisma.agent.findUnique({ where: { id }, select: { id: true } })
+  const agent = await prisma.agent.findUnique({ where: { id, ownerId: auth.userId }, select: { id: true } })
   if (!agent) {
     return NextResponse.json({ error: 'Agent 不存在' }, { status: 404 })
   }
@@ -88,7 +88,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params
 
-  const agent = await prisma.agent.findUnique({ where: { id }, select: { id: true } })
+  const agent = await prisma.agent.findUnique({ where: { id, ownerId: auth.userId }, select: { id: true } })
   if (!agent) {
     return NextResponse.json({ error: 'Agent 不存在' }, { status: 404 })
   }

@@ -121,10 +121,10 @@ export async function callTool(
 
     if (result.success) {
       incrementCounter(METRIC.TOOL_CALL_SUCCESS)
-      emitWebhookEvent('tool_call.completed', { agentId, connectorId, action, durationMs })
+      emitWebhookEvent('tool_call.completed', { agentId, connectorId, action, durationMs, ownerId: permCheck.ownerId })
     } else {
       incrementCounter(METRIC.TOOL_CALL_ERROR)
-      emitWebhookEvent('tool_call.failed', { agentId, connectorId, action, durationMs, error: result.error?.message })
+      emitWebhookEvent('tool_call.failed', { agentId, connectorId, action, durationMs, error: result.error?.message, ownerId: permCheck.ownerId })
     }
     recordHistogram(METRIC.TOOL_CALL_DURATION_MS, durationMs)
     log.info({ agentId, connectorId, action, success: result.success, durationMs }, 'tool call completed')
@@ -142,7 +142,7 @@ export async function callTool(
     })
     incrementCounter(METRIC.TOOL_CALL_ERROR)
     recordHistogram(METRIC.TOOL_CALL_DURATION_MS, durationMs)
-    emitWebhookEvent('tool_call.failed', { agentId, connectorId, action, durationMs, error: message })
+    emitWebhookEvent('tool_call.failed', { agentId, connectorId, action, durationMs, error: message, ownerId: permCheck.ownerId })
     log.error({ agentId, connectorId, action, err: message, durationMs }, 'tool call failed')
     return { success: false, error: message }
   }

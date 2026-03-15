@@ -14,7 +14,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   const { id } = await context.params
 
   const endpoint = await prisma.webhookEndpoint.findUnique({
-    where: { id },
+    where: { id, ownerId: auth.userId },
     select: { id: true, url: true, secret: true },
   })
 

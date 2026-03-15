@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   const { id } = await context.params
   const body = await request.json() as Record<string, unknown>
 
-  const policy = await prisma.agentPolicy.findUnique({ where: { id }, select: { id: true } })
+  const policy = await prisma.agentPolicy.findFirst({ where: { id, agent: { ownerId: auth.userId } }, select: { id: true } })
   if (!policy) {
     return NextResponse.json({ error: 'Policy 不存在' }, { status: 404 })
   }
@@ -54,7 +54,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
   const { id } = await context.params
 
-  const policy = await prisma.agentPolicy.findUnique({ where: { id }, select: { id: true } })
+  const policy = await prisma.agentPolicy.findFirst({ where: { id, agent: { ownerId: auth.userId } }, select: { id: true } })
   if (!policy) {
     return NextResponse.json({ error: 'Policy 不存在' }, { status: 404 })
   }

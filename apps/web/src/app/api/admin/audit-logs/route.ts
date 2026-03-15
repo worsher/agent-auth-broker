@@ -16,7 +16,12 @@ export async function GET(request: NextRequest) {
   const startDate = params.get('startDate')
   const endDate = params.get('endDate')
 
-  const where: Prisma.AuditLogWhereInput = {}
+  const where: Prisma.AuditLogWhereInput = {
+    OR: [
+      { agent: { ownerId: auth.userId } },
+      { userId: auth.userId },
+    ],
+  }
   if (agentId) where.agentId = agentId
   if (connectorId) where.connectorId = connectorId
   if (permissionResult) where.permissionResult = permissionResult

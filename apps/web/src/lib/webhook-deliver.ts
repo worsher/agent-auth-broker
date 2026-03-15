@@ -11,11 +11,17 @@ export async function deliverWebhookEvent(
 ): Promise<void> {
   const log = logger.child({ module: 'webhook' })
 
+  const ownerId = payload.ownerId as string | undefined
+  const where: { isActive: true; events: { has: string }; ownerId?: string } = {
+    isActive: true,
+    events: { has: eventType },
+  }
+  if (ownerId) {
+    where.ownerId = ownerId
+  }
+
   const endpoints = await prisma.webhookEndpoint.findMany({
-    where: {
-      isActive: true,
-      events: { has: eventType },
-    },
+    where,
     select: { id: true, url: true, secret: true },
   })
 

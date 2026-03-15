@@ -29,6 +29,7 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
       status: true,
       expiresAt: true,
       connectorId: true,
+      ownerId: true,
     },
   })
 
@@ -47,7 +48,8 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
         cred.connectorId,
         cred.encryptedData,
         cred.encryptionKeyId,
-        prisma
+        prisma,
+        cred.ownerId
       )
       log.info({ credentialId }, 'credential refreshed successfully')
       return refreshed
@@ -58,7 +60,7 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
         data: { status: 'REFRESH_REQUIRED' },
       })
       const msg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr)
-      emitWebhookEvent('credential.refresh_failed', { credentialId, connectorId: cred.connectorId, error: msg })
+      emitWebhookEvent('credential.refresh_failed', { credentialId, connectorId: cred.connectorId, error: msg, ownerId: cred.ownerId })
       log.error({ credentialId, err: msg }, 'credential refresh failed')
       throw new Error(`Credential ${credentialId} has expired and could not be refreshed: ${msg}`)
     }
