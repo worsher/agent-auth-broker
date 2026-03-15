@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client'
 import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared-types'
 import safe from 'safe-regex2'
 import { getPrisma } from './db.js'
-import { isIpAllowed } from './ip-match.js'
+import { isIpAllowed } from '@broker/shared-utils'
 
 /**
  * 数据库模式的权限检查

@@ -3,7 +3,7 @@ import { expandScopes } from '@broker/connectors'
 import safe from 'safe-regex2'
 import type { LocalStore } from './local-store.js'
 import { RateLimiter } from './rate-limiter.js'
-import { isIpAllowed } from './ip-match.js'
+import { isIpAllowed } from '@broker/shared-utils'
 
 // 全局速率限制器实例（跨调用保持状态）
 const globalRateLimiter = new RateLimiter()

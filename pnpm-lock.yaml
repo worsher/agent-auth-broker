@@ -162,6 +162,9 @@ importers:
       '@broker/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@broker/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       '@prisma/client':
         specifier: ^5.22.0
         version: 5.22.0(prisma@5.22.0)
@@ -205,6 +208,9 @@ importers:
       '@broker/shared-types':
         specifier: workspace:*
         version: link:../shared-types
+      '@broker/shared-utils':
+        specifier: workspace:*
+        version: link:../shared-utils
       pino:
         specifier: ^10.3.1
         version: 10.3.1
@@ -227,6 +233,15 @@ importers:
 
   packages/shared-types:
     devDependencies:
+      typescript:
+        specifier: ^5.7.0
+        version: 5.9.3
+
+  packages/shared-utils:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.19.37
+        version: 20.19.37
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
