@@ -3,6 +3,8 @@ import type { PermissionCheckInput, PermissionCheckResult } from '@broker/shared
 import safe from 'safe-regex2'
 import { getPrisma } from './db.js'
 import { isIpAllowed } from '@broker/shared-utils'
+import { getCoreLogger } from './logger.js'
+import { incrementCounter, METRIC } from './metrics.js'
 
 /**
  * 数据库模式的权限检查
@@ -10,6 +12,7 @@ import { isIpAllowed } from '@broker/shared-utils'
  * @param prismaClient 可选的 Prisma 实例，不传则使用 core 内部的全局实例
  */
 export async function checkPermission(input: PermissionCheckInput, prismaClient?: PrismaClient): Promise<PermissionCheckResult> {
+  const log = getCoreLogger()
   const prisma = prismaClient ?? getPrisma()
   const { agentId, connectorId, action } = input
   const fullAction = `${connectorId}:${action}`
@@ -21,17 +24,23 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
   })
 
   if (!agent || !agent.isActive) {
+    incrementCounter(METRIC.PERMISSION_DENIED)
+    log.info({ agentId, action: fullAction }, 'permission denied: agent inactive')
     return { result: 'DENIED_AGENT_INACTIVE', message: 'Agent is inactive or not found' }
   }
 
   // 1.5 Token TTL 检查
   if (agent.tokenExpiresAt && agent.tokenExpiresAt < new Date()) {
+    incrementCounter(METRIC.PERMISSION_DENIED)
+    log.info({ agentId, action: fullAction }, 'permission denied: token expired')
     return { result: 'DENIED_TOKEN_EXPIRED', message: 'Agent token has expired' }
   }
 
   // 1.6 IP 白名单检查
   if (agent.allowedIps.length > 0 && input.clientIp) {
     if (!isIpAllowed(input.clientIp, agent.allowedIps)) {
+      incrementCounter(METRIC.PERMISSION_DENIED)
+      log.warn({ agentId, clientIp: input.clientIp, action: fullAction }, 'permission denied: IP not allowed')
       return { result: 'DENIED_IP_NOT_ALLOWED', message: `Client IP "${input.clientIp}" is not in the allowed list` }
     }
   }
@@ -58,16 +67,22 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
   })
 
   if (!policy) {
+    incrementCounter(METRIC.PERMISSION_DENIED)
+    log.info({ agentId, connectorId, action: fullAction }, 'permission denied: no policy')
     return { result: 'DENIED_NO_POLICY', message: `No active policy found for connector: ${connectorId}` }
   }
 
   // 3. 凭证状态检查（仅拒绝已撤销；过期/刷新由 vault.ts 处理）
   if (policy.credential.status === 'REVOKED') {
+    incrementCounter(METRIC.PERMISSION_DENIED)
+    log.info({ agentId, connectorId, action: fullAction }, 'permission denied: credential revoked')
     return { result: 'DENIED_CREDENTIAL_EXPIRED', message: 'Credential has been revoked' }
   }
 
   // 4. 检查 allowedActions（空数组 = 允许所有）
   if (policy.allowedActions.length > 0 && !policy.allowedActions.includes(fullAction)) {
+    incrementCounter(METRIC.PERMISSION_DENIED)
+    log.info({ agentId, action: fullAction }, 'permission denied: action not allowed')
     return {
       result: 'DENIED_ACTION_NOT_ALLOWED',
       message: `Action "${fullAction}" is not in the allowed list`,
@@ -97,5 +112,7 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
     }
   }
 
+  incrementCounter(METRIC.PERMISSION_ALLOWED)
+  log.debug({ agentId, connectorId, action: fullAction, credentialId: policy.credentialId }, 'permission allowed')
   return { result: 'ALLOWED', credentialId: policy.credentialId }
 }

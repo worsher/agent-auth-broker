@@ -2,6 +2,8 @@ import type { PrismaClient } from '@prisma/client'
 import { encryptCredential, decryptCredential } from '@broker/crypto'
 import { getConnector } from '@broker/connectors'
 import type { DecryptedCredential } from '@broker/shared-types'
+import { getCoreLogger } from './logger.js'
+import { incrementCounter, METRIC } from './metrics.js'
 
 // 进程内去重：防止同一凭证的并发刷新风暴
 const refreshInFlight = new Map<string, Promise<DecryptedCredential>>()
@@ -75,14 +77,21 @@ export async function attemptTokenRefresh(
   currentEncryptionKeyId: string,
   prisma: PrismaClient
 ): Promise<DecryptedCredential> {
+  const log = getCoreLogger()
+
   // 去重：如果同一凭证正在刷新中，直接等待
   const existing = refreshInFlight.get(credentialId)
-  if (existing) return existing
+  if (existing) {
+    incrementCounter(METRIC.TOKEN_REFRESH_DEDUP)
+    log.debug({ credentialId }, 'token refresh deduplicated (in-flight)')
+    return existing
+  }
 
   const promise = (async (): Promise<DecryptedCredential> => {
     // 1. 获取 connector 的 OAuth2 刷新配置
     const connector = getConnector(connectorId)
     if (!connector?.oauth2RefreshConfig) {
+      log.warn({ credentialId, connectorId }, 'connector does not support OAuth2 refresh')
       throw new Error(`Connector "${connectorId}" does not support OAuth2 token refresh`)
     }
     const { tokenEndpoint, clientIdEnvVar, clientSecretEnvVar, authStyle } =
@@ -108,6 +117,7 @@ export async function attemptTokenRefresh(
     }
 
     // 3. 调用 token endpoint
+    log.info({ credentialId, connectorId, tokenEndpoint }, 'requesting new OAuth2 tokens')
     const tokenResponse = await fetchNewTokens(
       tokenEndpoint,
       clientId,
@@ -145,8 +155,14 @@ export async function attemptTokenRefresh(
       },
     })
 
+    incrementCounter(METRIC.TOKEN_REFRESH_SUCCESS)
+    log.info({ credentialId, connectorId, expiresIn: tokenResponse.expires_in, tokenRotated: !!tokenResponse.refresh_token }, 'OAuth2 token refresh succeeded')
     return updatedData as unknown as DecryptedCredential
-  })().finally(() => {
+  })().catch((err) => {
+    incrementCounter(METRIC.TOKEN_REFRESH_FAILURE)
+    log.error({ credentialId, connectorId, err: err instanceof Error ? err.message : String(err) }, 'OAuth2 token refresh failed')
+    throw err
+  }).finally(() => {
     refreshInFlight.delete(credentialId)
   })
 

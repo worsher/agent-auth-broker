@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { verifyBearerToken } from '@/lib/auth/agent-token'
 import { prisma } from '@/lib/db/prisma'
 import { getConnector } from '@broker/connectors'
+import { withLogging } from '@/lib/with-logging'
 
-export async function GET(request: NextRequest) {
+async function handleGet(request: NextRequest) {
   const agentId = await verifyBearerToken(request.headers.get('authorization'))
   if (!agentId) {
     return NextResponse.json({ error: '无效的 Agent Token' }, { status: 401 })
@@ -59,3 +60,5 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({ success: true, data: tools })
 }
+
+export const GET = withLogging(handleGet)

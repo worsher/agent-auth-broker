@@ -3,6 +3,8 @@ import { getConnector } from '@broker/connectors'
 import { getPrisma } from './db.js'
 import { checkPermission } from './permission.js'
 import { loadCredential } from './vault.js'
+import { getCoreLogger } from './logger.js'
+import { incrementCounter, recordHistogram, METRIC } from './metrics.js'
 
 export interface ToolEntry {
   connector: string
@@ -68,7 +70,9 @@ export async function callTool(
   action: string,
   params: Record<string, unknown>
 ): Promise<BrokerCallResult> {
+  const log = getCoreLogger()
   const prisma = getPrisma()
+  const start = Date.now()
 
   // 1. 权限检查
   const permCheck = await checkPermission({ agentId, connectorId, action, params })
@@ -85,6 +89,7 @@ export async function callTool(
     await prisma.auditLog.create({
       data: { ...logData, responseStatus: 403 },
     })
+    log.info({ agentId, connectorId, action, permissionResult: permCheck.result, durationMs: Date.now() - start }, 'tool call denied')
     return {
       success: false,
       error: permCheck.message,
@@ -102,6 +107,7 @@ export async function callTool(
   try {
     const credential = await loadCredential(permCheck.credentialId)
     const result = await connector.execute(action, params, credential)
+    const durationMs = Date.now() - start
 
     await prisma.auditLog.create({
       data: {
@@ -112,16 +118,28 @@ export async function callTool(
       },
     })
 
+    if (result.success) {
+      incrementCounter(METRIC.TOOL_CALL_SUCCESS)
+    } else {
+      incrementCounter(METRIC.TOOL_CALL_ERROR)
+    }
+    recordHistogram(METRIC.TOOL_CALL_DURATION_MS, durationMs)
+    log.info({ agentId, connectorId, action, success: result.success, durationMs }, 'tool call completed')
+
     return {
       success: result.success,
       data: result.data,
       error: result.error?.message,
     }
   } catch (err) {
+    const durationMs = Date.now() - start
     const message = err instanceof Error ? err.message : 'Internal error'
     await prisma.auditLog.create({
       data: { ...logData, credentialId: permCheck.credentialId, responseStatus: 500, errorMessage: message },
     })
+    incrementCounter(METRIC.TOOL_CALL_ERROR)
+    recordHistogram(METRIC.TOOL_CALL_DURATION_MS, durationMs)
+    log.error({ agentId, connectorId, action, err: message, durationMs }, 'tool call failed')
     return { success: false, error: message }
   }
 }

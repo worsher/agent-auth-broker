@@ -115,6 +115,9 @@ importers:
       next-auth:
         specifier: ^4.24.11
         version: 4.24.13(next@14.2.35)(react-dom@18.3.1)(react@18.3.1)
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -177,6 +180,9 @@ importers:
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
+      pino:
+        specifier: ^10.3.1
+        version: 10.3.1
       safe-regex2:
         specifier: ^5.1.0
         version: 5.1.0

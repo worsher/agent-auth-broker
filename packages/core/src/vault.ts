@@ -3,6 +3,8 @@ import { decryptCredential } from '@broker/crypto'
 import type { DecryptedCredential } from '@broker/shared-types'
 import { getPrisma } from './db.js'
 import { attemptTokenRefresh } from './token-refresher.js'
+import { getCoreLogger } from './logger.js'
+import { incrementCounter, METRIC } from './metrics.js'
 
 /**
  * 解密并加载凭证
@@ -14,7 +16,10 @@ import { attemptTokenRefresh } from './token-refresher.js'
  * @param prismaClient 可选的 Prisma 实例
  */
 export async function loadCredential(credentialId: string, prismaClient?: PrismaClient): Promise<DecryptedCredential> {
+  const log = getCoreLogger()
   const prisma = prismaClient ?? getPrisma()
+  incrementCounter(METRIC.CREDENTIAL_ACCESS)
+
   const cred = await prisma.credential.findUniqueOrThrow({
     where: { id: credentialId },
     select: {
@@ -27,19 +32,24 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
   })
 
   if (cred.status !== 'ACTIVE') {
+    incrementCounter(METRIC.CREDENTIAL_INACTIVE)
+    log.warn({ credentialId, status: cred.status }, 'credential access denied: inactive')
     throw new Error(`Credential ${credentialId} is not active: ${cred.status}`)
   }
 
   // 凭证过期：尝试 OAuth2 自动刷新
   if (cred.expiresAt && cred.expiresAt < new Date()) {
+    log.info({ credentialId, connectorId: cred.connectorId }, 'credential expired, attempting refresh')
     try {
-      return await attemptTokenRefresh(
+      const refreshed = await attemptTokenRefresh(
         credentialId,
         cred.connectorId,
         cred.encryptedData,
         cred.encryptionKeyId,
         prisma
       )
+      log.info({ credentialId }, 'credential refreshed successfully')
+      return refreshed
     } catch (refreshErr) {
       // 刷新失败：标记为 REFRESH_REQUIRED，需管理员重新授权
       await prisma.credential.update({
@@ -47,6 +57,7 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
         data: { status: 'REFRESH_REQUIRED' },
       })
       const msg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr)
+      log.error({ credentialId, err: msg }, 'credential refresh failed')
       throw new Error(`Credential ${credentialId} has expired and could not be refreshed: ${msg}`)
     }
   }
@@ -56,5 +67,6 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
     encryptionKeyId: cred.encryptionKeyId,
   })
 
+  log.debug({ credentialId }, 'credential decrypted')
   return decrypted as unknown as DecryptedCredential
 }

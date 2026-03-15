@@ -23,6 +23,9 @@ import {
   type Tool,
 } from '@modelcontextprotocol/sdk/types.js'
 import { logger } from './logger.js'
+import { setCoreLogger } from '@broker/core'
+
+setCoreLogger(logger.child({ module: 'core' }))
 
 // 模式检测优先级：BROKER_URL > DATABASE_URL > BROKER_CONFIG
 const mode = process.env.BROKER_URL

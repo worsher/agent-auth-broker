@@ -6,8 +6,9 @@ import { loadCredential } from '@/lib/vault/index'
 import { getConnector } from '@broker/connectors'
 import { prisma } from '@/lib/db/prisma'
 import type { BrokerCallInput } from '@broker/shared-types'
+import { withLogging } from '@/lib/with-logging'
 
-export async function POST(request: NextRequest) {
+async function handlePost(request: NextRequest) {
   const agentId = await verifyBearerToken(request.headers.get('authorization'))
   if (!agentId) {
     return NextResponse.json({ error: '无效的 Agent Token' }, { status: 401 })
@@ -79,6 +80,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 })
   }
 }
+
+export const POST = withLogging(handlePost)
 
 // 脱敏参数，不记录可能包含敏感信息的值
 function sanitizeParams(params: Record<string, unknown>): Record<string, unknown> {
