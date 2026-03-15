@@ -9,13 +9,14 @@ export default defineConfig({
   entry: ['src/index.ts'],
   format: ['esm'],
   target: 'es2022',
+  platform: 'node',
   outDir: 'dist',
   clean: true,
   splitting: false,
   sourcemap: true,
   dts: false,
   noExternal: [/^@broker\//],
-  external: ['commander', 'yaml', 'zod', '@modelcontextprotocol/sdk'],
+  external: ['commander', 'yaml', 'zod', '@modelcontextprotocol/sdk', 'pino', 'safe-regex2'],
   define: {
     'PKG_VERSION': JSON.stringify(pkg.version),
   },
@@ -25,6 +26,7 @@ export default defineConfig({
       '@broker/connectors': path.join(packagesDir, 'connectors/src/index.ts'),
       '@broker/crypto': path.join(packagesDir, 'crypto/src/index.ts'),
       '@broker/shared-types': path.join(packagesDir, 'shared-types/src/index.ts'),
+      '@broker/shared-utils': path.join(packagesDir, 'shared-utils/src/index.ts'),
     }
   },
 })

@@ -18,6 +18,8 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "commander": "^13.1.0",
+    "pino": "^10.3.1",
+    "safe-regex2": "^5.1.0",
     "yaml": "^2.7.0",
     "zod": "^3.23.8"
   },
