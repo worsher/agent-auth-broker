@@ -4,6 +4,7 @@ import { getConnector } from '@broker/connectors'
 import type { DecryptedCredential } from '@broker/shared-types'
 import { getCoreLogger } from './logger.js'
 import { incrementCounter, METRIC } from './metrics.js'
+import { emitWebhookEvent } from './events.js'
 
 // 进程内去重：防止同一凭证的并发刷新风暴
 const refreshInFlight = new Map<string, Promise<DecryptedCredential>>()
@@ -156,6 +157,7 @@ export async function attemptTokenRefresh(
     })
 
     incrementCounter(METRIC.TOKEN_REFRESH_SUCCESS)
+    emitWebhookEvent('credential.refreshed', { credentialId, connectorId, expiresIn: tokenResponse.expires_in })
     log.info({ credentialId, connectorId, expiresIn: tokenResponse.expires_in, tokenRotated: !!tokenResponse.refresh_token }, 'OAuth2 token refresh succeeded')
     return updatedData as unknown as DecryptedCredential
   })().catch((err) => {

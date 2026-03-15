@@ -5,6 +5,7 @@ import { checkPermission } from './permission.js'
 import { loadCredential } from './vault.js'
 import { getCoreLogger } from './logger.js'
 import { incrementCounter, recordHistogram, METRIC } from './metrics.js'
+import { emitWebhookEvent } from './events.js'
 
 export interface ToolEntry {
   connector: string
@@ -120,8 +121,10 @@ export async function callTool(
 
     if (result.success) {
       incrementCounter(METRIC.TOOL_CALL_SUCCESS)
+      emitWebhookEvent('tool_call.completed', { agentId, connectorId, action, durationMs })
     } else {
       incrementCounter(METRIC.TOOL_CALL_ERROR)
+      emitWebhookEvent('tool_call.failed', { agentId, connectorId, action, durationMs, error: result.error?.message })
     }
     recordHistogram(METRIC.TOOL_CALL_DURATION_MS, durationMs)
     log.info({ agentId, connectorId, action, success: result.success, durationMs }, 'tool call completed')
@@ -139,6 +142,7 @@ export async function callTool(
     })
     incrementCounter(METRIC.TOOL_CALL_ERROR)
     recordHistogram(METRIC.TOOL_CALL_DURATION_MS, durationMs)
+    emitWebhookEvent('tool_call.failed', { agentId, connectorId, action, durationMs, error: message })
     log.error({ agentId, connectorId, action, err: message, durationMs }, 'tool call failed')
     return { success: false, error: message }
   }

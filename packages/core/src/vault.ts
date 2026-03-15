@@ -5,6 +5,7 @@ import { getPrisma } from './db.js'
 import { attemptTokenRefresh } from './token-refresher.js'
 import { getCoreLogger } from './logger.js'
 import { incrementCounter, METRIC } from './metrics.js'
+import { emitWebhookEvent } from './events.js'
 
 /**
  * 解密并加载凭证
@@ -57,6 +58,7 @@ export async function loadCredential(credentialId: string, prismaClient?: Prisma
         data: { status: 'REFRESH_REQUIRED' },
       })
       const msg = refreshErr instanceof Error ? refreshErr.message : String(refreshErr)
+      emitWebhookEvent('credential.refresh_failed', { credentialId, connectorId: cred.connectorId, error: msg })
       log.error({ credentialId, err: msg }, 'credential refresh failed')
       throw new Error(`Credential ${credentialId} has expired and could not be refreshed: ${msg}`)
     }

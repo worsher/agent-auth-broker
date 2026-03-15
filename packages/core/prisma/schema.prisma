@@ -17,9 +17,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  agents      Agent[]
-  credentials Credential[]
-  auditLogs   AuditLog[]
+  agents           Agent[]
+  credentials      Credential[]
+  auditLogs        AuditLog[]
+  webhookEndpoints WebhookEndpoint[]
 
   @@map("users")
 }
@@ -156,4 +157,43 @@ model AuditLog {
   @@index([credentialId, createdAt])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// Webhook 订阅端点
+model WebhookEndpoint {
+  id       String @id @default(cuid())
+  ownerId  String
+  owner    User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  url      String
+  secret   String
+  events   String[]
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+
+  @@unique([ownerId, url])
+  @@index([isActive])
+  @@map("webhook_endpoints")
+}
+
+// Webhook 投递记录
+model WebhookDelivery {
+  id         String @id @default(cuid())
+  endpointId String
+  endpoint   WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  eventType  String
+  payload    Json
+  httpStatus Int?
+  error      String?
+  deliveredAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([endpointId, createdAt])
+  @@map("webhook_deliveries")
 }

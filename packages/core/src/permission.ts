@@ -5,6 +5,7 @@ import { getPrisma } from './db.js'
 import { isIpAllowed } from '@broker/shared-utils'
 import { getCoreLogger } from './logger.js'
 import { incrementCounter, METRIC } from './metrics.js'
+import { emitWebhookEvent } from './events.js'
 
 /**
  * 数据库模式的权限检查
@@ -25,6 +26,7 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
 
   if (!agent || !agent.isActive) {
     incrementCounter(METRIC.PERMISSION_DENIED)
+    emitWebhookEvent('permission.denied', { agentId, action: fullAction, reason: 'DENIED_AGENT_INACTIVE' })
     log.info({ agentId, action: fullAction }, 'permission denied: agent inactive')
     return { result: 'DENIED_AGENT_INACTIVE', message: 'Agent is inactive or not found' }
   }
@@ -40,6 +42,7 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
   if (agent.allowedIps.length > 0 && input.clientIp) {
     if (!isIpAllowed(input.clientIp, agent.allowedIps)) {
       incrementCounter(METRIC.PERMISSION_DENIED)
+      emitWebhookEvent('permission.denied', { agentId, action: fullAction, reason: 'DENIED_IP_NOT_ALLOWED', clientIp: input.clientIp })
       log.warn({ agentId, clientIp: input.clientIp, action: fullAction }, 'permission denied: IP not allowed')
       return { result: 'DENIED_IP_NOT_ALLOWED', message: `Client IP "${input.clientIp}" is not in the allowed list` }
     }
