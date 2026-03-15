@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { attemptTokenRefresh } from '../token-refresher'
+import { attemptTokenRefresh } from '../token-refresher.js'
 
 // Mock @broker/connectors
 vi.mock('@broker/connectors', () => ({
