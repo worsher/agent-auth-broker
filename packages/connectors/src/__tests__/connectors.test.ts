@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { getConnector, listConnectors } from '../registry'
+import { githubConnector } from '../github/index'
 import { slackConnector } from '../slack/index'
 import { notionConnector } from '../notion/index'
 import { jiraConnector } from '../jira/index'
@@ -376,5 +377,34 @@ describe('feishuConnector', () => {
     expect(required).toContain('receive_id')
     expect(required).toContain('msg_type')
     expect(required).toContain('content')
+  })
+})
+
+describe('OAuth2 refresh config', () => {
+  it('should have oauth2RefreshConfig on all OAuth2 connectors', () => {
+    const oauth2Connectors = [githubConnector, slackConnector, notionConnector, googleConnector]
+    for (const conn of oauth2Connectors) {
+      expect(conn.oauth2RefreshConfig).toBeDefined()
+      expect(conn.oauth2RefreshConfig!.tokenEndpoint).toMatch(/^https:\/\//)
+      expect(conn.oauth2RefreshConfig!.clientIdEnvVar).toBeTruthy()
+      expect(conn.oauth2RefreshConfig!.clientSecretEnvVar).toBeTruthy()
+    }
+  })
+
+  it('should NOT have oauth2RefreshConfig on API key connectors', () => {
+    const apiKeyConnectors = [jiraConnector, linearConnector, discordConnector, telegramConnector, feishuConnector]
+    for (const conn of apiKeyConnectors) {
+      expect(conn.oauth2RefreshConfig).toBeUndefined()
+    }
+  })
+
+  it('should use basic auth style for Notion', () => {
+    expect(notionConnector.oauth2RefreshConfig!.authStyle).toBe('basic')
+  })
+
+  it('should use body auth style (default) for GitHub, Slack, Google', () => {
+    expect(githubConnector.oauth2RefreshConfig!.authStyle).toBeUndefined()
+    expect(slackConnector.oauth2RefreshConfig!.authStyle).toBeUndefined()
+    expect(googleConnector.oauth2RefreshConfig!.authStyle).toBeUndefined()
   })
 })

@@ -31,6 +31,11 @@ function fail(message: string, code: string, status?: number): ConnectorResult {
 }
 
 export const githubConnector: ConnectorAdapter = {
+  oauth2RefreshConfig: {
+    tokenEndpoint: 'https://github.com/login/oauth/access_token',
+    clientIdEnvVar: 'GITHUB_CLIENT_ID',
+    clientSecretEnvVar: 'GITHUB_CLIENT_SECRET',
+  },
   info: {
     id: 'github',
     name: 'GitHub',

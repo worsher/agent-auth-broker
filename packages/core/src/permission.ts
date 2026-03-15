@@ -45,7 +45,9 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
       credential: {
         connectorId,
-        status: 'ACTIVE',
+        // 不限制 status：允许 ACTIVE 和可刷新状态的凭证通过，由 vault.ts 处理过期刷新
+        // 仅排除已撤销的凭证
+        status: { not: 'REVOKED' },
       },
     },
     include: {
@@ -59,12 +61,9 @@ export async function checkPermission(input: PermissionCheckInput, prismaClient?
     return { result: 'DENIED_NO_POLICY', message: `No active policy found for connector: ${connectorId}` }
   }
 
-  // 3. 检查凭证过期
-  if (policy.credential.status !== 'ACTIVE') {
-    return { result: 'DENIED_CREDENTIAL_EXPIRED', message: 'Credential is not active' }
-  }
-  if (policy.credential.expiresAt && policy.credential.expiresAt < now) {
-    return { result: 'DENIED_CREDENTIAL_EXPIRED', message: 'Credential has expired' }
+  // 3. 凭证状态检查（仅拒绝已撤销；过期/刷新由 vault.ts 处理）
+  if (policy.credential.status === 'REVOKED') {
+    return { result: 'DENIED_CREDENTIAL_EXPIRED', message: 'Credential has been revoked' }
   }
 
   // 4. 检查 allowedActions（空数组 = 允许所有）

@@ -31,6 +31,11 @@ function fail(message: string, code: string, status?: number): ConnectorResult {
 }
 
 export const slackConnector: ConnectorAdapter = {
+  oauth2RefreshConfig: {
+    tokenEndpoint: 'https://slack.com/api/oauth.v2.access',
+    clientIdEnvVar: 'SLACK_CLIENT_ID',
+    clientSecretEnvVar: 'SLACK_CLIENT_SECRET',
+  },
   info: {
     id: 'slack',
     name: 'Slack',

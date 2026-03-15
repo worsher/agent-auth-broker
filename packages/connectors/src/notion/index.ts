@@ -32,6 +32,12 @@ function fail(message: string, code: string, status?: number): ConnectorResult {
 }
 
 export const notionConnector: ConnectorAdapter = {
+  oauth2RefreshConfig: {
+    tokenEndpoint: 'https://api.notion.com/v1/oauth/token',
+    clientIdEnvVar: 'NOTION_CLIENT_ID',
+    clientSecretEnvVar: 'NOTION_CLIENT_SECRET',
+    authStyle: 'basic',
+  },
   info: {
     id: 'notion',
     name: 'Notion',

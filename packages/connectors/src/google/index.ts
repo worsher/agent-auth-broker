@@ -37,6 +37,11 @@ const CALENDAR_API = 'https://www.googleapis.com/calendar/v3'
 const DRIVE_API = 'https://www.googleapis.com/drive/v3'
 
 export const googleConnector: ConnectorAdapter = {
+  oauth2RefreshConfig: {
+    tokenEndpoint: 'https://oauth2.googleapis.com/token',
+    clientIdEnvVar: 'GOOGLE_CLIENT_ID',
+    clientSecretEnvVar: 'GOOGLE_CLIENT_SECRET',
+  },
   info: {
     id: 'google',
     name: 'Google',
