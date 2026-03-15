@@ -1,8 +1,24 @@
 import type { ConnectorAdapter } from './types'
 import { githubConnector } from './github/index'
+import { slackConnector } from './slack/index'
+import { notionConnector } from './notion/index'
+import { jiraConnector } from './jira/index'
+import { linearConnector } from './linear/index'
+import { googleConnector } from './google/index'
+import { discordConnector } from './discord/index'
+import { telegramConnector } from './telegram/index'
+import { feishuConnector } from './feishu/index'
 
 const connectors = new Map<string, ConnectorAdapter>([
   ['github', githubConnector],
+  ['slack', slackConnector],
+  ['notion', notionConnector],
+  ['jira', jiraConnector],
+  ['linear', linearConnector],
+  ['google', googleConnector],
+  ['discord', discordConnector],
+  ['telegram', telegramConnector],
+  ['feishu', feishuConnector],
 ])
 
 export function getConnector(id: string): ConnectorAdapter | undefined {
