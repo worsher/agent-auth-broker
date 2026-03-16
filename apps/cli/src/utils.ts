@@ -21,7 +21,7 @@ export function getGlobalConfigPath(): string {
 
 /**
  * 查找配置文件路径
- * 优先级：--config 参数 > 当前目录向上查找 > 全局配置目录 > 当前目录（默认）
+ * 优先级：--config 参数 > 当前目录向上查找 > 全局配置目录（兜底）
  */
 export function resolveConfigPath(configOption?: string): string {
   if (configOption) {
@@ -38,19 +38,71 @@ export function resolveConfigPath(configOption?: string): string {
     dir = parent
   }
 
-  // 查找全局配置目录
-  const globalConfig = getGlobalConfigPath()
-  if (fs.existsSync(globalConfig)) return globalConfig
-
-  return path.resolve(DEFAULT_CONFIG_NAME)
+  // 兜底：全局配置目录（无论是否存在都返回此路径）
+  return getGlobalConfigPath()
 }
 
 /**
- * 检查配置文件是否存在，不存在时打印友好提示
+ * 获取默认配置模板
+ */
+function getDefaultConfigTemplate(): Record<string, unknown> {
+  return {
+    version: '1',
+    agents: [
+      {
+        id: 'my-agent',
+        name: 'My AI Agent',
+      },
+    ],
+    credentials: [
+      {
+        id: 'github-main',
+        connector: 'github',
+        token: '${GITHUB_TOKEN}',
+      },
+    ],
+    policies: [
+      {
+        agent: 'my-agent',
+        credential: 'github-main',
+        actions: ['*'],
+      },
+    ],
+    audit: {
+      enabled: true,
+      output: 'stdout',
+    },
+  }
+}
+
+/**
+ * 检查配置文件是否存在
+ * 如果不存在，自动在全局目录创建默认配置文件
  */
 export function ensureConfigExists(configPath: string): boolean {
   if (fs.existsSync(configPath)) return true
 
+  // 检查是否是全局配置路径，如果是则自动创建
+  const globalConfigPath = getGlobalConfigPath()
+  if (configPath === globalConfigPath) {
+    const globalDir = getGlobalConfigDir()
+    if (!fs.existsSync(globalDir)) {
+      fs.mkdirSync(globalDir, { recursive: true })
+    }
+    const template = getDefaultConfigTemplate()
+    const yaml = stringifyYaml(template, { lineWidth: 120 })
+    fs.writeFileSync(globalConfigPath, yaml, 'utf-8')
+    logSuccess(`已自动创建全局配置文件: ${globalConfigPath}`)
+    console.log()
+    console.log('下一步：')
+    console.log('  1. 编辑配置文件添加你的凭证和策略')
+    console.log('  2. 设置环境变量: export GITHUB_TOKEN=your_token')
+    console.log('  3. 验证配置: broker validate')
+    console.log()
+    return true
+  }
+
+  // 用户指定了自定义路径但文件不存在
   logError(`找不到配置文件: ${configPath}`)
   console.log()
   console.log('请先初始化配置文件:')

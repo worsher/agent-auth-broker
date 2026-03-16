@@ -1,5 +1,5 @@
 import { Command } from 'commander'
-import { resolveConfigPath } from '../utils.js'
+import { resolveConfigPath, ensureConfigExists } from '../utils.js'
 import { startServer } from '../ui/server.js'
 
 export const uiCommand = new Command('ui')
@@ -8,6 +8,10 @@ export const uiCommand = new Command('ui')
   .option('-p, --port <port>', '服务端口', '3200')
   .action((opts: { config?: string; port: string }) => {
     const configPath = resolveConfigPath(opts.config)
+    if (!ensureConfigExists(configPath)) {
+      process.exitCode = 1
+      return
+    }
     const port = parseInt(opts.port, 10)
 
     if (isNaN(port) || port < 1 || port > 65535) {
